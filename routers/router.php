@@ -35,6 +35,7 @@ require_once('quagga.php');
 require_once('frr.php');
 require_once('vyatta.php');
 require_once('huawei.php');
+require_once('tnsr.php');
 require_once('includes/utils.php');
 require_once('auth/authentication.php');
 
@@ -255,6 +256,9 @@ abstract class Router {
 
       case 'frr':
         return new FRR($config, $router_config, $id, $requester);
+
+      case 'tnsr':
+        return new TNSR($config, $router_config, $id, $requester);
 
       case 'vyatta':
       case 'vyos':
