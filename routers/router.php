@@ -34,6 +34,7 @@ require_once('openbgpd.php');
 require_once('quagga.php');
 require_once('frr.php');
 require_once('vyatta.php');
+require_once('vyos.php');
 require_once('huawei.php');
 require_once('tnsr.php');
 require_once('justlinux.php');
@@ -323,10 +324,12 @@ abstract class Router {
         return new Speedtest($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'vyatta':
-      case 'vyos':
       case 'edgeos':
         return new Vyatta($config, $router_config, $id, $requester, $datacenter_id);
 
+      case 'vyos':
+        return new Vyos($config, $router_config, $id, $requester, $datacenter_id);
+  
       default:
         print('Unknown router type "'.$router_config['type'].'".');
         return null;
