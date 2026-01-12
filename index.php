@@ -32,6 +32,9 @@ final class LookingGlass {
   private $routers;
   private $routing_instances;
   private $doc;
+  private $datacenters;
+  private $selrouter;
+  private $seldc;
 
   public function __construct($config) {
     set_defaults_for_routers($config);
@@ -43,7 +46,10 @@ final class LookingGlass {
     $this->captcha = new Captcha($config['captcha']);
     $this->routers = $config['routers'];
     $this->doc = $config['doc'];
+    $this->datacenters = $config['datacenters'];
     $this->routing_instances = $config['routing_instances'];
+    $this->selrouter = null;
+    $this->seldc = null;
   }
 
   private function router_count() {
@@ -66,6 +72,39 @@ final class LookingGlass {
       return $command_count;
   }
 
+  private function datacenter_count() {
+    if ($this->frontpage['datacenter_count'] > 0)
+      return $this->frontpage['datacenter_count'];
+    else
+      return count($this->datacenters);
+  }
+
+  private function render_datacenters() {
+    print('<div class="mb-3">');
+    print('<label class="form-label" for="datacenters">Datacenter</label>');
+    print('<select size="'.$this->datacenter_count().'" class="form-select" name="datacenters" id="datacenters">');
+
+    $first = true;
+    foreach (array_keys($this->datacenters) as $datacenter) {
+    //  if ($this->routers[$router]['disable_ipv6'] &&
+    //      $this->routers[$router]['disable_ipv4']) {
+    //    continue;
+    //  }
+
+      print('<option value="'.$datacenter.'"');
+      if ($first) {
+        $first = false;
+        print(' selected="selected"');
+        $this->seldc=$datacenter;
+      }
+      print('>'.$this->datacenters[$datacenter]['name']);
+      print('</option>');
+    }
+
+    print('</select>');
+    print('</div>');
+  }
+
   private function render_routers() {
     print('<div class="mb-3">');
     print('<label class="form-label" for="routers">Router to use</label>');
@@ -82,7 +121,8 @@ final class LookingGlass {
       print('<option value="'.$router.'"');
       if ($first) {
         $first = false;
-        print(' selected="selected"');
+	print(' selected="selected"');
+	$this->selrouter=$router;
       }
       print('>'.$this->routers[$router]['desc']);
       print('</option>');
@@ -92,13 +132,13 @@ final class LookingGlass {
     print('</div>');
   }
 
-  private function render_commands() {
+  private function render_commands($selrouter) {
     print('<div class="mb-3">');
     print('<label class="form-label" for="query">Command to issue</label>');
     print('<select size="'.$this->command_count().'" class="form-select" name="query" id="query">');
     $selected = ' selected="selected"';
     foreach (array_keys($this->doc) as $cmd) {
-      if (isset($this->doc[$cmd]['command'])) {
+      if (isset($this->doc[$cmd]['command']) && !isset($this->routers[$selrouter][$cmd]['disable'])) {
         print('<option value="'.$cmd.'"'.$selected.'>'.$this->doc[$cmd]['command'].'</option>');
       }
       $selected = '';
@@ -183,7 +223,7 @@ final class LookingGlass {
     print('<div class="content text-center" id="command_options">');
     print('<form role="form" action="execute.php" method="post">');
     print('<fieldset id="command_properties">');
-
+    $this->render_datacenters();
     foreach ($this->frontpage['order'] as $element) {
       switch ($element) {
         case 'routers':
@@ -191,7 +231,7 @@ final class LookingGlass {
           break;
 
         case 'commands':
-          $this->render_commands();
+          $this->render_commands($this->selrouter);
           break;
 
         case 'parameter':

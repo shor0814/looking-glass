@@ -36,6 +36,7 @@ require_once('frr.php');
 require_once('vyatta.php');
 require_once('huawei.php');
 require_once('tnsr.php');
+require_once('justlinux.php');
 require_once('includes/utils.php');
 require_once('auth/authentication.php');
 
@@ -142,7 +143,7 @@ abstract class Router {
   protected abstract function build_ping($parameter, $routing_instance = false);
 
   protected abstract function build_traceroute($parameter, $routing_instance = false);
-
+  
   private function build_commands($command, $parameter, $routing_instance = false) {
     switch ($command) {
       case 'bgp':
@@ -168,6 +169,9 @@ abstract class Router {
 
       case 'traceroute':
         return $this->build_traceroute($parameter, $routing_instance);
+
+      case 'mtr':
+	return $this->build_mtr($parameter, $routing_instance);
 
       default:
         throw new Exception('Command not supported.');
@@ -259,6 +263,9 @@ abstract class Router {
 
       case 'tnsr':
         return new TNSR($config, $router_config, $id, $requester);
+
+      case 'justlinux':
+        return new JustLinux($config, $router_config, $id, $requester);
 
       case 'vyatta':
       case 'vyos':

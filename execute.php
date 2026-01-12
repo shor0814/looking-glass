@@ -41,6 +41,82 @@ if (isset($_POST['doc']) && !empty($_POST['doc'])) {
   return;
 }
 
+// Just updating the datacenter routers
+if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacenterValue'])) {
+  $datacenterID= ($_POST['selectedDatacenterValue']);
+  $datacenter=$config['datacenters'][$datacenterID];
+  print("DatacenterID: $datacenterID");
+  print_r($datacenter);
+  // Get command count
+  $router_count = 0;
+  if (isset($config['datacenter'][$datacenter]['routers'])) {
+    $routerArray = explode(',', $config['datacenters'][$datacenter]['routers']);
+    $router_count = count($routerArray);
+    print ("Router Count: $router_count");
+  }
+
+  $html = null;
+  //$selected = ' selected="selected"';
+  //foreach (array_keys($doc) as $cmd) {
+  //        //DEBUG print("inside foreach");
+  //      if (isset($config['doc'][$cmd]['command']) && !isset($config['routers'][$routerID][$cmd]['disable'])) {
+  //      $html .= '<option value="';
+  //      $html .= $cmd;
+  //      $html .= '"';
+  //      $html .= $selected;
+  //      $html .= '>';
+  //      $html .= $config['doc'][$cmd]['command'];
+  //      $html .= '</option>';
+  //      $selected = '';
+  //    }
+  //  }
+  //print($html);
+  return;
+
+}
+
+// Just updating the router commands
+if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue'])) {
+  $routerID= ($_POST['selectedRouterValue']);
+  $doc=$config['doc'];	  
+  //DEBUG print("RouterID: $routerID");
+  // Get command count
+  if ($config['frontpage']['command_count'] > 0) {
+    $command_count = $config['frontpage']['command_count'];
+    //DEBUG print("Command Count from Front Page $command_count");
+  }
+  else {
+    $command_count = 0;
+    foreach (array_keys($doc) as $cmd) {
+      if (isset($config['doc'][$cmd]['command'])) {
+       $command_count++;
+      }
+    }
+    //DEBUG print("Command Count from doc $command_count");
+  }
+  
+  $html = null;
+  $selected = ' selected="selected"';
+//  $html = '<select size="6" class="form-select" name="query" id="query">';
+  foreach (array_keys($doc) as $cmd) {
+	  //DEBUG print("inside foreach");
+        if (isset($config['doc'][$cmd]['command']) && !isset($config['routers'][$routerID][$cmd]['disable'])) {
+	$html .= '<option value="';
+	$html .= $cmd;
+	$html .= '"';
+	$html .= $selected;
+	$html .= '>';
+	$html .= $config['doc'][$cmd]['command'];
+	$html .= '</option>';
+	$selected = '';
+      }
+    }
+ // $html .= '</select>';
+  print($html);
+  return;
+
+}
+
 if (isset($_POST['query']) && !empty($_POST['query']) &&
     isset($_POST['routers']) && !empty($_POST['routers']) &&
     isset($_POST['parameter']) && !empty($_POST['parameter'])) {

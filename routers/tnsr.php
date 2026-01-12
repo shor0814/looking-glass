@@ -24,7 +24,7 @@ require_once('includes/command_builder.php');
 require_once('includes/utils.php');
 
 final class TNSR extends UNIX {
-  protected static $wrapper = 'sudo vtysh -N dataplane -c ';
+  protected static $wrapper = 'vtysh -N dataplane -c ';
 
   protected function build_bgp($parameter, $routing_instance = false) {
     $cmd = new CommandBuilder();
@@ -56,6 +56,111 @@ final class TNSR extends UNIX {
     }
 
     return $commands;
+  }
+
+  protected function build_ping($parameter, $routing_instance = false) {
+    if (!is_valid_destination($parameter)) {
+      throw new Exception('The parameter is not an IP address or a hostname.');
+    }
+
+    $cmd = new CommandBuilder();
+    $cmd->add('clixon_cli -1 ping ');
+
+    if (match_hostname($parameter)) {
+      $cmd->add(' '.quote($parameter));
+    } else {
+      $cmd->add(' '.quote($parameter));
+    }
+
+    if ($this->has_source_interface_id()) {
+      if (is_valid_ip_address($this->get_source_interface_id())) {
+        $cmd->add('source ');
+	if (match_ipv6($parameter)) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        } else {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
+      } else {
+        $cmd->add('source '.$this->get_source_interface_id());
+      }
+    }
+
+    $cmd->add('count 5');
+
+    return array($cmd);
+  }
+
+  protected function build_traceroute($parameter, $routing_instance = false) {
+    if (!is_valid_destination($parameter)) {
+      throw new Exception('The parameter is not an IP address or a hostname.');
+    }
+
+    $cmd = new CommandBuilder();
+    $cmd->add('clixon_cli -1 traceroute');
+
+    if (match_hostname($parameter)) {
+      $hostname = $parameter;
+      $parameter = hostname_to_ip_address($hostname, $this->config);
+
+      if (!$parameter) {
+        throw new Exception('No record found for '.$hostname);
+      }
+
+      if (match_ipv6($parameter)) {
+        $cmd->add('ipv6');
+      }
+      $cmd->add(isset($hostname) ? $hostname : $parameter);
+    } else {
+      if (match_ipv6($parameter)) {
+        $cmd->add('ipv6');
+      }
+      $cmd->add($parameter);
+    }
+
+    if ($this->has_source_interface_id()) {
+      $cmd->add('source');
+
+      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
+        $cmd->add($this->get_source_interface_id('ipv6'));
+      }
+      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
+        $cmd->add($this->get_source_interface_id('ipv4'));
+      }
+    }
+
+    return array($cmd);
+  }
+
+  protected function build_mtr($parameter, $routing_instance = false) {
+    if (!is_valid_destination($parameter)) {
+      throw new Exception('The parameter is not an IP address or a hostname.');
+    }
+
+    $cmd = new CommandBuilder();
+    $cmd->add('clixon_cli -1 dataplane shell mtr');
+
+    if (match_hostname($parameter)) {
+      $cmd->add(' '.quote($parameter));
+    } else {
+      $cmd->add(' '.quote($parameter));
+    }
+
+    if ($this->has_source_interface_id()) {
+      if (is_valid_ip_address($this->get_source_interface_id())) {
+        $cmd->add('--address ');
+        if (match_ipv6($parameter)) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        } else {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
+      } else {
+        $cmd->add('--address '.$this->get_source_interface_id());
+      }
+    }
+
+    $cmd->add('-c3 -w');
+
+    return array($cmd);
   }
 
   protected function build_as($parameter, $routing_instance = false) {

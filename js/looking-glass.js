@@ -14,6 +14,32 @@ function request_doc(query) {
   });
 }
 
+function request_commands(routers) {
+  $.ajax({
+    type: 'POST',
+    url: 'execute.php',
+    data: {selectedRouterValue: $('#routers option:selected').val() }
+  }).done(function (response) {
+    var response = $.parseHTML(response);
+    $("#query").html(response); 
+  }).fail(function (xhr) {
+    $('#help-content').text('Cannot load documentation...');
+  });
+}
+
+function request_routers(datacenters) {
+  $.ajax({
+    type: 'POST',
+    url: 'execute.php',
+    data: {selectedDatacenterValue: $('#datacenters option:selected').val() }
+  }).done(function (response) {
+    var response = $.parseHTML(response);
+    $("#routers").html(response); 
+  }).fail(function (xhr) {
+    $('#help-content').text('Cannot load documentation...');
+  });
+}
+
 $(document).ready(function () {
   // hide the optional parameters field
   $('.result').hide();
@@ -58,6 +84,18 @@ $(document).ready(function () {
   $('#query').on('change', function (e) {
     e.preventDefault();
     request_doc($('#query').val());
+  });
+
+  // Update the router list when a datacenter is selected
+  $('#datacenters').on('change', function (e) {
+    e.preventDefault();
+    request_routers($('#datacenters').val());
+  });
+
+  // Update the command list when a router is selected
+  $('#routers').on('change', function (e) {
+    e.preventDefault();
+    request_commands($('#routers').val());
   });
 
   // if the field has been completed, turn it back to normal

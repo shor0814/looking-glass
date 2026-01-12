@@ -109,4 +109,23 @@ abstract class UNIX extends Router {
 
     return array($cmd);
   }
+
+  protected function build_mtr($parameter, $routing_instance = false) {
+    if (!is_valid_destination($parameter)) {
+      throw new Exception('The parameter is not an IP address or a hostname.');
+    }
+
+    $cmd = new CommandBuilder();
+    $cmd->add('mtr ');
+
+    if (match_hostname($parameter)) {
+      $cmd->add(' '.quote($parameter));
+    } else {
+      $cmd->add(' '.quote($parameter));
+    }
+
+    $cmd->add('-c3 -w');
+
+    return array($cmd);
+  }
 }

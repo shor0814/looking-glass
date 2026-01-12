@@ -46,9 +46,9 @@ $config = array(
 
   // Release configuration
   'release' => array(
-    'version' => '2.3.0',
+    'version' => '2.4.0',
     'codename' => 'Established',
-    'repository' => 'https://github.com/gmazoyer/looking-glass'
+    'repository' => 'https://github.com/shor0814/looking-glass'
   ),
 
   // Frontpage configuration
@@ -87,6 +87,8 @@ $config = array(
     ),
     // Number of routers to show on frontpage
     'router_count' => 5,
+    // Number of datacenters to show on frontpage
+    'datacenter_count' => 0,
     // Number of commands to show on frontpage (0 scales dynamically)
     'command_count' => 0
   ),
@@ -230,6 +232,12 @@ $config = array(
     'traceroute' => array(
       'command' => 'traceroute IP_ADDRESS|HOSTNAME',
       'description' => 'Display the path to a given destination.',
+      'parameter' => 'The parameter must be an IPv4/IPv6 address (without mask) or a hostname.<br />RFC1918 addresses, IPv6 starting with FD or FC, and IPv4 reserved ranges (0.0.0.0/8, 169.254.0.0/16, 192.0.2.0/24 and 224.0.0.0/4) may be refused.<br /><br />Example of valid arguments:<br /><ul><li>8.8.8.8</li><li>2001:db8:1337::42</li><li>example.com</li></ul>'
+    ),
+    // Documentation for the 'mtr' query
+    'mtr' => array(
+      'command' => 'mtr IP_ADDRESS|HOSTNAME',
+      'description' => 'Display the path and speed to a given destination.',
       'parameter' => 'The parameter must be an IPv4/IPv6 address (without mask) or a hostname.<br />RFC1918 addresses, IPv6 starting with FD or FC, and IPv4 reserved ranges (0.0.0.0/8, 169.254.0.0/16, 192.0.2.0/24 and 224.0.0.0/4) may be refused.<br /><br />Example of valid arguments:<br /><ul><li>8.8.8.8</li><li>2001:db8:1337::42</li><li>example.com</li></ul>'
     )
   ),
