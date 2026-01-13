@@ -136,6 +136,22 @@ $config['tools']['traceroute_options'] = '-A -q1 -w2 -m15';
 $config['tools']['traceroute6'] = 'traceroute6';
 $config['tools']['traceroute4'] = 'traceroute';
 
+// Speed test configuration (optional)
+// Base URL can be set at multiple levels (priority: router > datacenter > global > auto-detect)
+// Global level (applies to all routers unless overridden):
+//$config['speed_test']['base_url'] = 'https://lg.example.com';
+// Datacenter level (applies to all routers in that datacenter unless overridden):
+//$config['datacenters']['dc1']['speed_test']['base_url'] = 'https://cdn-dc1.example.com';
+// Router level (applies only to that specific router):
+//$config['datacenters']['dc1']['routers']['router1']['speed_test']['base_url'] = 'https://cdn-router1.example.com';
+// Leave unset to auto-detect from the current request (recommended for Caddy)
+
+// Enable optional justlinux-only commands (disabled by default)
+// These commands are only available for justlinux router type
+// Uncomment to enable:
+//$config['doc']['interface-stats']['enabled'] = true;
+//$config['doc']['system-info']['enabled'] = true;
+
 // Enables VRF subsystem
 $config['vrfs']['enabled'] = true;
 // The default IPv4 vrf

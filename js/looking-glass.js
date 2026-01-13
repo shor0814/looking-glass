@@ -1,42 +1,110 @@
 function request_doc(query) {
+  // Validate query before making request
+  if (!query || query.trim() === '') {
+    return;
+  }
+  
   $.ajax({
     type: 'post',
     url: 'execute.php',
-    data: { doc: query, dontlook: '' }
+    data: { doc: query, dontlook: '' },
+    dataType: 'json'
   }).done(function (response) {
-    var response = $.parseJSON(response);
-
-    $('#command-reminder').text(response.command);
-    $('#description-help').html(response.description);
-    $('#parameter-help').html(response.parameter);
+    if (response && response.command) {
+      $('#command-reminder').text(response.command);
+      $('#description-help').html(response.description);
+      $('#parameter-help').html(response.parameter);
+    }
   }).fail(function (xhr) {
-    $('#help-content').text('Cannot load documentation...');
+    // Silently fail - documentation is optional
+    console.log('Cannot load documentation for:', query);
   });
 }
 
-function request_commands(routers) {
+function request_commands(routerID, datacenterID) {
+  if (!routerID || routerID.trim() === '') {
+    $("#query").html('');
+    return;
+  }
+  
+  var data = {selectedRouterValue: routerID};
+  if (datacenterID) {
+    data.selectedDatacenterValue = datacenterID;
+  }
+  
   $.ajax({
     type: 'POST',
     url: 'execute.php',
-    data: {selectedRouterValue: $('#routers option:selected').val() }
+    data: data
   }).done(function (response) {
-    var response = $.parseHTML(response);
-    $("#query").html(response); 
+    if (!response || response.trim() === '') {
+      $("#query").html('');
+      return;
+    }
+    
+    try {
+      var response = $.parseHTML(response);
+      $("#query").html(response);
+      // Update help for the first command
+      var firstCommand = $("#query option:first").val();
+      if (firstCommand && firstCommand.trim() !== '') {
+        request_doc(firstCommand);
+      }
+    } catch (e) {
+      console.error('Error parsing command response:', e);
+      $("#query").html('');
+    }
   }).fail(function (xhr) {
-    $('#help-content').text('Cannot load documentation...');
+    console.error('Failed to load commands:', xhr);
+    $("#query").html('');
   });
 }
 
-function request_routers(datacenters) {
+function request_routers(datacenterID) {
+  if (!datacenterID || datacenterID.trim() === '') {
+    $("#routers").html('');
+    $("#query").html('');
+    return;
+  }
+  
   $.ajax({
     type: 'POST',
     url: 'execute.php',
-    data: {selectedDatacenterValue: $('#datacenters option:selected').val() }
+    data: {selectedDatacenterValue: datacenterID}
   }).done(function (response) {
-    var response = $.parseHTML(response);
-    $("#routers").html(response); 
+    if (!response || response.trim() === '') {
+      console.warn('Empty response when loading routers for datacenter:', datacenterID);
+      $("#routers").html('');
+      $("#query").html('');
+      return;
+    }
+    
+    try {
+      var parsedResponse = $.parseHTML(response);
+      $("#routers").html(parsedResponse);
+      
+      // After routers are loaded, load commands for the first router
+      var firstRouter = $("#routers option:first").val();
+      if (firstRouter && firstRouter.trim() !== '') {
+        // Small delay to ensure DOM is updated
+        setTimeout(function() {
+          request_commands(firstRouter, datacenterID);
+        }, 50);
+      } else {
+        // No routers found, clear commands
+        $("#query").html('');
+        console.warn('No routers found for datacenter:', datacenterID);
+      }
+    } catch (e) {
+      console.error('Error parsing router response:', e, response);
+      $("#routers").html('');
+      $("#query").html('');
+    }
   }).fail(function (xhr) {
-    $('#help-content').text('Cannot load documentation...');
+    console.error('Failed to load routers:', xhr);
+    $("#routers").html('');
+    $("#query").html('');
+    $('#help-content').text('Cannot load routers...');
   });
 }
 
@@ -77,25 +145,55 @@ $(document).ready(function () {
     }
   });
 
-  // initialize the help modal
-  request_doc($('#query').val());
+  // Initialize: load routers for the initially selected datacenter, then commands
+  var initialDatacenter = $('#datacenters option:selected').val();
+  if (initialDatacenter && initialDatacenter.trim() !== '') {
+    // Load routers for the selected datacenter
+    request_routers(initialDatacenter);
+  } else {
+    // No datacenters, try to load commands for initial router
+    var initialRouter = $('#routers option:selected').val();
+    if (initialRouter && initialRouter.trim() !== '') {
+      request_commands(initialRouter, null);
+    } else {
+      // Initialize the help modal if no router selected, but only if query has a value
+      var initialQuery = $('#query').val();
+      if (initialQuery && initialQuery.trim() !== '') {
+        request_doc(initialQuery);
+      }
+    }
+  }
 
   // update help when a command is selected
   $('#query').on('change', function (e) {
     e.preventDefault();
-    request_doc($('#query').val());
+    var selectedCommand = $('#query').val();
+    if (selectedCommand && selectedCommand.trim() !== '') {
+      request_doc(selectedCommand);
+    }
   });
 
   // Update the router list when a datacenter is selected
   $('#datacenters').on('change', function (e) {
     e.preventDefault();
-    request_routers($('#datacenters').val());
+    e.stopImmediatePropagation();
+    var datacenterID = $('#datacenters option:selected').val();
+    if (datacenterID && datacenterID.trim() !== '') {
+      request_routers(datacenterID);
+    } else {
+      // No datacenter selected, clear routers and commands
+      $("#routers").html('');
+      $("#query").html('');
+    }
   });
 
   // Update the command list when a router is selected
   $('#routers').on('change', function (e) {
     e.preventDefault();
-    request_commands($('#routers').val());
+    e.stopImmediatePropagation();
+    var routerID = $('#routers option:selected').val();
+    var datacenterID = $('#datacenters option:selected').val();
+    request_commands(routerID, datacenterID);
   });
 
   // if the field has been completed, turn it back to normal
@@ -123,11 +221,22 @@ $(document).ready(function () {
         $('.loading').hide();
       }
     }).done(function (response) {
+      // Commands that don't require parameters
+      var noParameterCommands = ['speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 'system-info'];
+      var selectedCommand = $('#query').val();
+      var parameter = $('#input-param').val();
+      
       if (!response || (response.length === 0)) {
-        // no parameter given
-        $('#error-text').text('No parameter given.');
-        $('#input-param').focus().addClass('is-invalid');
-        $('.alert').slideDown();
+        // Check if parameter is required for this command
+        if (!noParameterCommands.includes(selectedCommand) && (!parameter || parameter.trim() === '')) {
+          $('#error-text').text('No parameter given.');
+          $('#input-param').focus().addClass('is-invalid');
+          $('.alert').slideDown();
+        } else {
+          // Command doesn't require parameter, but got empty response
+          $('#error-text').text('Empty response from server.');
+          $('.alert').slideDown();
+        }
       } else {
         try {
           var response = $.parseJSON(response);

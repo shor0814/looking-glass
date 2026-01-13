@@ -45,12 +45,14 @@ abstract class Router {
   protected $config;
   protected $id;
   protected $requester;
+  protected $datacenter_id;
 
-  public function __construct($global_config, $config, $id, $requester) {
+  public function __construct($global_config, $config, $id, $requester, $datacenter_id = null) {
     $this->global_config = $global_config;
     $this->config = $config;
     $this->id = $id;
     $this->requester = $requester;
+    $this->datacenter_id = $datacenter_id;
 
     // Set defaults if not present
     if (!isset($this->config['timeout'])) {
@@ -143,6 +145,28 @@ abstract class Router {
   protected abstract function build_ping($parameter, $routing_instance = false);
 
   protected abstract function build_traceroute($parameter, $routing_instance = false);
+
+  // Optional methods for justlinux-specific features
+  // Default implementations throw exceptions, can be overridden in subclasses
+  protected function build_speed_test($command, $parameter, $routing_instance = false) {
+    throw new Exception('Speed test is only available for justlinux router type.');
+  }
+
+  protected function build_dns_lookup($parameter, $routing_instance = false) {
+    throw new Exception('DNS lookup is only available for justlinux router type.');
+  }
+
+  protected function build_whois_lookup($parameter, $routing_instance = false) {
+    throw new Exception('WHOIS lookup is only available for justlinux router type.');
+  }
+
+  protected function build_interface_stats($parameter, $routing_instance = false) {
+    throw new Exception('Interface statistics is only available for justlinux router type.');
+  }
+
+  protected function build_system_info($parameter, $routing_instance = false) {
+    throw new Exception('System information is only available for justlinux router type.');
+  }
   
   private function build_commands($command, $parameter, $routing_instance = false) {
     switch ($command) {
@@ -172,6 +196,23 @@ abstract class Router {
 
       case 'mtr':
 	return $this->build_mtr($parameter, $routing_instance);
+
+      case 'speed-test-1mb':
+      case 'speed-test-10mb':
+      case 'speed-test-100mb':
+        return $this->build_speed_test($command, $parameter, $routing_instance);
+
+      case 'dns-lookup':
+        return $this->build_dns_lookup($parameter, $routing_instance);
+
+      case 'whois-lookup':
+        return $this->build_whois_lookup($parameter, $routing_instance);
+
+      case 'interface-stats':
+        return $this->build_interface_stats($parameter, $routing_instance);
+
+      case 'system-info':
+        return $this->build_system_info($parameter, $routing_instance);
 
       default:
         throw new Exception('Command not supported.');
@@ -211,66 +252,76 @@ abstract class Router {
     return $data;
   }
 
-  public static final function instance($id, $requester) {
+  public static final function instance($id, $requester, $datacenter_id = null) {
     global $config;
 
-    $router_config = $config['routers'][$id];
+    // Try to get router config from datacenter first, then global
+    $router_config = null;
+    if ($datacenter_id && isset($config['datacenters'][$datacenter_id]['routers'][$id])) {
+      $router_config = $config['datacenters'][$datacenter_id]['routers'][$id];
+    } elseif (isset($config['routers'][$id])) {
+      $router_config = $config['routers'][$id];
+    }
+    
+    if (!$router_config) {
+      throw new Exception('Router configuration not found for: ' . $id);
+    }
 
     switch (strtolower($router_config['type'])) {
       case 'arista':
-        return new Arista($config, $router_config, $id, $requester);
+        return new Arista($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'bird':
-        return new Bird($config, $router_config, $id, $requester);
+        return new Bird($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'bird2':
-        return new Bird2($config, $router_config, $id, $requester);
+        return new Bird2($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'cisco':
       case 'ios':
-        return new Cisco($config, $router_config, $id, $requester);
+        return new Cisco($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'extreme_netiron':
-        return new ExtremeNetIron($config, $router_config, $id, $requester);
+        return new ExtremeNetIron($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'huawei':
-        return new Huawei($config, $router_config, $id, $requester);
+        return new Huawei($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'ios-xr':
       case 'iosxr':
-        return new IOSXR($config, $router_config, $id, $requester);
+        return new IOSXR($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'juniper':
       case 'junos':
-        return new Juniper($config, $router_config, $id, $requester);
+        return new Juniper($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'mikrotik':
       case 'routeros':
-        return new Mikrotik($config, $router_config, $id, $requester);
+        return new Mikrotik($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'nokia':
-        return new Nokia($config, $router_config, $id, $requester);
+        return new Nokia($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'openbgpd':
-        return new OpenBGPD($config, $router_config, $id, $requester);
+        return new OpenBGPD($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'quagga':
       case 'zebra':
-        return new Quagga($config, $router_config, $id, $requester);
+        return new Quagga($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'frr':
-        return new FRR($config, $router_config, $id, $requester);
+        return new FRR($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'tnsr':
-        return new TNSR($config, $router_config, $id, $requester);
+        return new TNSR($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'justlinux':
-        return new JustLinux($config, $router_config, $id, $requester);
+        return new JustLinux($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'vyatta':
       case 'vyos':
       case 'edgeos':
-        return new Vyatta($config, $router_config, $id, $requester);
+        return new Vyatta($config, $router_config, $id, $requester, $datacenter_id);
 
       default:
         print('Unknown router type "'.$router_config['type'].'".');

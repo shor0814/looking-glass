@@ -26,8 +26,8 @@ require_once('includes/utils.php');
 
 final class OpenBGPD extends UNIX {
 
-  public function __construct($global_config, $config, $id, $requester) {
-    parent::__construct($global_config, $config, $id, $requester);
+  public function __construct($global_config, $config, $id, $requester, $datacenter_id = null) {
+    parent::__construct($global_config, $config, $id, $requester, $datacenter_id);
 
     // Check if we need sudo or dosu
     if (isset($this->config['become_method']) && $this->config['become_method'] == 'doas') {

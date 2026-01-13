@@ -33,10 +33,28 @@ function set_defaults_for_routers(&$parsed_config) {
   );
 
   // Loads defaults when key does not exist
-  foreach ($parsed_config['routers'] as &$router) {
-    foreach ($router_defaults as $key => $value) {
-      if (!array_key_exists($key, $router)) {
-        $router[$key] = $value;
+  // First, handle routers nested under datacenters
+  if (isset($parsed_config['datacenters']) && is_array($parsed_config['datacenters'])) {
+    foreach ($parsed_config['datacenters'] as &$datacenter) {
+      if (isset($datacenter['routers']) && is_array($datacenter['routers'])) {
+        foreach ($datacenter['routers'] as &$router) {
+          foreach ($router_defaults as $key => $value) {
+            if (!array_key_exists($key, $router)) {
+              $router[$key] = $value;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Then, handle global routers (for backward compatibility)
+  if (isset($parsed_config['routers']) && is_array($parsed_config['routers'])) {
+    foreach ($parsed_config['routers'] as &$router) {
+      foreach ($router_defaults as $key => $value) {
+        if (!array_key_exists($key, $router)) {
+          $router[$key] = $value;
+        }
       }
     }
   }
@@ -202,6 +220,15 @@ $config = array(
     'traceroute_source_option' => '-s'
   ),
 
+  // Speed test configuration
+  'speed_test' => array(
+    // Base URL for speed test files (optional, defaults to current host)
+    // Set this if you want to serve files from a different domain/CDN
+    // Example: 'https://cdn.example.com' or 'https://lg.example.com'
+    // Leave null to use the current HTTP_HOST automatically
+    'base_url' => null
+  ),
+
   // Documentation (must be HTML)
   'doc' => array(
     // Documentation for the 'show route' query
@@ -239,6 +266,47 @@ $config = array(
       'command' => 'mtr IP_ADDRESS|HOSTNAME',
       'description' => 'Display the path and speed to a given destination.',
       'parameter' => 'The parameter must be an IPv4/IPv6 address (without mask) or a hostname.<br />RFC1918 addresses, IPv6 starting with FD or FC, and IPv4 reserved ranges (0.0.0.0/8, 169.254.0.0/16, 192.0.2.0/24 and 224.0.0.0/4) may be refused.<br /><br />Example of valid arguments:<br /><ul><li>8.8.8.8</li><li>2001:db8:1337::42</li><li>example.com</li></ul>'
+    ),
+    // Documentation for speed tests (justlinux only)
+    'speed-test-1mb' => array(
+      'command' => 'Speed Test (1MB)',
+      'description' => 'Test download speed using a 1MB test file.',
+      'parameter' => 'No parameter required. This test will download a 1MB file and measure the download speed.'
+    ),
+    'speed-test-10mb' => array(
+      'command' => 'Speed Test (10MB)',
+      'description' => 'Test download speed using a 10MB test file.',
+      'parameter' => 'No parameter required. This test will download a 10MB file and measure the download speed.'
+    ),
+    'speed-test-100mb' => array(
+      'command' => 'Speed Test (100MB)',
+      'description' => 'Test download speed using a 100MB test file.',
+      'parameter' => 'No parameter required. This test will download a 100MB file and measure the download speed.'
+    ),
+    // Documentation for network information tools (justlinux only)
+    'dns-lookup' => array(
+      'command' => 'DNS Lookup',
+      'description' => 'Perform DNS lookup for a hostname or IP address.',
+      'parameter' => 'The parameter must be a hostname (for forward DNS) or an IP address (for reverse DNS).<br /><br />Example of valid arguments:<br /><ul><li>example.com</li><li>8.8.8.8</li><li>2001:db8::1</li></ul>'
+    ),
+    'whois-lookup' => array(
+      'command' => 'WHOIS Lookup',
+      'description' => 'Perform WHOIS lookup for an IP address or ASN.',
+      'parameter' => 'The parameter must be an IPv4/IPv6 address or an AS number.<br /><br />Example of valid arguments:<br /><ul><li>8.8.8.8</li><li>2001:db8::1</li><li>15169</li></ul>'
+    ),
+    // Documentation for interface statistics (justlinux only, disabled by default)
+    'interface-stats' => array(
+      'command' => 'Interface Statistics',
+      'description' => 'Display network interface statistics and utilization.',
+      'parameter' => 'Optional: Specify an interface name (e.g., eth0, ens33). Leave empty to show all interfaces.',
+      'enabled' => false  // Disabled by default, must be explicitly enabled in config.php
+    ),
+    // Documentation for system information (justlinux only, disabled by default)
+    'system-info' => array(
+      'command' => 'System Information',
+      'description' => 'Display system information including uptime, CPU, memory, and network details.',
+      'parameter' => 'No parameter required. This command displays general system information.',
+      'enabled' => false  // Disabled by default, must be explicitly enabled in config.php
     )
   ),
 

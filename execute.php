@@ -36,93 +36,156 @@ if ($config['antispam']['enabled']) {
 
 // Just asked for the documentation
 if (isset($_POST['doc']) && !empty($_POST['doc'])) {
+  header('Content-Type: application/json');
   $query = htmlspecialchars($_POST['doc']);
-  print(json_encode($config['doc'][$query]));
+  
+  if (isset($config['doc'][$query])) {
+    print(json_encode($config['doc'][$query]));
+  } else {
+    print(json_encode(array('error' => 'Documentation not found for command: ' . $query)));
+  }
+  return;
+}
+
+// Just updating the router commands (check this FIRST to avoid conflicts)
+if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue'])) {
+  $routerID = $_POST['selectedRouterValue'];
+  $datacenterID = isset($_POST['selectedDatacenterValue']) ? $_POST['selectedDatacenterValue'] : null;
+  $doc = $config['doc'];
+  
+  // Get router config - check datacenter-scoped first, then global
+  $router_config = null;
+  if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$routerID])) {
+    $router_config = $config['datacenters'][$datacenterID]['routers'][$routerID];
+  } elseif (isset($config['routers'][$routerID])) {
+    $router_config = $config['routers'][$routerID];
+  }
+  
+  if (!$router_config) {
+    // Router not found, return empty
+    return;
+  }
+  
+  $html = '';
+  $selected = ' selected="selected"';
+  
+  // Get router type to auto-disable justlinux-only commands
+  $router_type = strtolower($router_config['type'] ?? '');
+  $justlinux_only_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 
+                                   'dns-lookup', 'whois-lookup', 'interface-stats', 'system-info');
+  
+  foreach (array_keys($doc) as $cmd) {
+    // Check if command is enabled in config (for commands that are disabled by default)
+    $command_enabled = true;
+    if (isset($config['doc'][$cmd]['enabled']) && !$config['doc'][$cmd]['enabled']) {
+      $command_enabled = false;
+    }
+    
+    // Check if command is disabled for this router
+    $is_disabled = false;
+    if (isset($router_config[$cmd]['disable']) && $router_config[$cmd]['disable']) {
+      $is_disabled = true;
+    }
+    
+    // Auto-disable justlinux-only commands for non-justlinux routers
+    // Unless explicitly enabled via speed_test['enabled'] config
+    if (!$is_disabled && in_array($cmd, $justlinux_only_commands) && $router_type !== 'justlinux') {
+      // Check if speed test is explicitly enabled for this router
+      if (in_array($cmd, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
+        $speed_test_enabled = false;
+        if (isset($router_config['speed_test']['enabled']) && $router_config['speed_test']['enabled']) {
+          $speed_test_enabled = true;
+        }
+        if (!$speed_test_enabled) {
+          $is_disabled = true;
+        }
+      } else {
+        // Other justlinux-only commands (DNS, WHOIS, etc.) still require justlinux
+        $is_disabled = true;
+      }
+    }
+    
+    if (isset($config['doc'][$cmd]['command']) && $command_enabled && !$is_disabled) {
+      $html .= '<option value="' . htmlspecialchars($cmd) . '"' . $selected . '>';
+      $html .= htmlspecialchars($config['doc'][$cmd]['command']);
+      $html .= '</option>';
+      $selected = '';
+    }
+  }
+  
+  print($html);
   return;
 }
 
 // Just updating the datacenter routers
-if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacenterValue'])) {
-  $datacenterID= ($_POST['selectedDatacenterValue']);
-  $datacenter=$config['datacenters'][$datacenterID];
-  print("DatacenterID: $datacenterID");
-  print_r($datacenter);
-  // Get command count
-  $router_count = 0;
-  if (isset($config['datacenter'][$datacenter]['routers'])) {
-    $routerArray = explode(',', $config['datacenters'][$datacenter]['routers']);
-    $router_count = count($routerArray);
-    print ("Router Count: $router_count");
-  }
-
-  $html = null;
-  //$selected = ' selected="selected"';
-  //foreach (array_keys($doc) as $cmd) {
-  //        //DEBUG print("inside foreach");
-  //      if (isset($config['doc'][$cmd]['command']) && !isset($config['routers'][$routerID][$cmd]['disable'])) {
-  //      $html .= '<option value="';
-  //      $html .= $cmd;
-  //      $html .= '"';
-  //      $html .= $selected;
-  //      $html .= '>';
-  //      $html .= $config['doc'][$cmd]['command'];
-  //      $html .= '</option>';
-  //      $selected = '';
-  //    }
-  //  }
-  //print($html);
-  return;
-
-}
-
-// Just updating the router commands
-if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue'])) {
-  $routerID= ($_POST['selectedRouterValue']);
-  $doc=$config['doc'];	  
-  //DEBUG print("RouterID: $routerID");
-  // Get command count
-  if ($config['frontpage']['command_count'] > 0) {
-    $command_count = $config['frontpage']['command_count'];
-    //DEBUG print("Command Count from Front Page $command_count");
-  }
-  else {
-    $command_count = 0;
-    foreach (array_keys($doc) as $cmd) {
-      if (isset($config['doc'][$cmd]['command'])) {
-       $command_count++;
-      }
-    }
-    //DEBUG print("Command Count from doc $command_count");
+if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacenterValue']) && 
+    (!isset($_POST['selectedRouterValue']) || empty($_POST['selectedRouterValue']))) {
+  $datacenterID = trim($_POST['selectedDatacenterValue']);
+  
+  if (!isset($config['datacenters'][$datacenterID])) {
+    print(''); // Return empty if datacenter not found
+    return;
   }
   
-  $html = null;
+  $datacenter = $config['datacenters'][$datacenterID];
+  $html = '';
   $selected = ' selected="selected"';
-//  $html = '<select size="6" class="form-select" name="query" id="query">';
-  foreach (array_keys($doc) as $cmd) {
-	  //DEBUG print("inside foreach");
-        if (isset($config['doc'][$cmd]['command']) && !isset($config['routers'][$routerID][$cmd]['disable'])) {
-	$html .= '<option value="';
-	$html .= $cmd;
-	$html .= '"';
-	$html .= $selected;
-	$html .= '>';
-	$html .= $config['doc'][$cmd]['command'];
-	$html .= '</option>';
-	$selected = '';
+  
+  // Get routers for this datacenter
+  if (isset($datacenter['routers']) && is_array($datacenter['routers'])) {
+    // Array of routers (nested format)
+    foreach ($datacenter['routers'] as $routerID => $router_config) {
+      // Skip if both IPv4 and IPv6 are disabled
+      if (isset($router_config['disable_ipv6']) && $router_config['disable_ipv6'] &&
+          isset($router_config['disable_ipv4']) && $router_config['disable_ipv4']) {
+        continue;
+      }
+      
+      $html .= '<option value="' . htmlspecialchars($routerID) . '"' . $selected . '>';
+      $html .= htmlspecialchars($router_config['desc'] ?? $routerID);
+      $html .= '</option>';
+      $selected = '';
+    }
+  } elseif (isset($datacenter['routers']) && is_string($datacenter['routers'])) {
+    // Comma-separated list (legacy format)
+    $routerArray = array_map('trim', explode(',', $datacenter['routers']));
+    foreach ($routerArray as $routerID) {
+      // Get router config from global routers
+      if (isset($config['routers'][$routerID])) {
+        $router_config = $config['routers'][$routerID];
+        // Skip if both IPv4 and IPv6 are disabled
+        if (isset($router_config['disable_ipv6']) && $router_config['disable_ipv6'] &&
+            isset($router_config['disable_ipv4']) && $router_config['disable_ipv4']) {
+          continue;
+        }
+        
+        $html .= '<option value="' . htmlspecialchars($routerID) . '"' . $selected . '>';
+        $html .= htmlspecialchars($router_config['desc'] ?? $routerID);
+        $html .= '</option>';
+        $selected = '';
       }
     }
- // $html .= '</select>';
+  }
+  
   print($html);
   return;
-
 }
 
 if (isset($_POST['query']) && !empty($_POST['query']) &&
-    isset($_POST['routers']) && !empty($_POST['routers']) &&
-    isset($_POST['parameter']) && !empty($_POST['parameter'])) {
+    isset($_POST['routers']) && !empty($_POST['routers'])) {
   $query = trim($_POST['query']);
   $hostname = trim($_POST['routers']);
-  $parameter = trim($_POST['parameter']);
+  $parameter = isset($_POST['parameter']) ? trim($_POST['parameter']) : '';
+
+  // Commands that don't require parameters
+  $no_parameter_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 'system-info');
+  
+  // Check if parameter is required for this command
+  if (!in_array($query, $no_parameter_commands) && empty($parameter)) {
+    $error = 'This command requires a parameter.';
+    print(json_encode(array('error' => $error)));
+    return;
+  }
 
   // Check if query is disabled
   if (!isset($config['doc'][$query]['command'])) {
@@ -139,22 +202,86 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
     }
   }
 
-  // Do the processing
-  $router = Router::instance($hostname, $requester);
-  $router_config = $router->get_config();
-
-  // Check if parameter is an IPv6 and if IPv6 is disabled
-  if (match_ipv6($parameter) && $router_config['disable_ipv6']) {
-    $error = 'IPv6 has been disabled for this router, you can only use IPv4.';
+  // Get datacenter ID if provided
+  $datacenterID = isset($_POST['datacenters']) ? $_POST['datacenters'] : null;
+  
+  // Validate that the router exists in the selected datacenter (if datacenter is provided)
+  if ($datacenterID) {
+    // Check if router exists in the selected datacenter
+    if (!isset($config['datacenters'][$datacenterID]['routers'][$hostname]) && 
+        !isset($config['routers'][$hostname])) {
+      $error = 'Router "' . htmlspecialchars($hostname) . '" not found in datacenter "' . htmlspecialchars($datacenterID) . '".';
+      print(json_encode(array('error' => $error)));
+      return;
+    }
+  }
+  
+  // Get router config to check for disabled commands - check datacenter-scoped first, then global
+  $router_config_for_check = null;
+  if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$hostname])) {
+    $router_config_for_check = $config['datacenters'][$datacenterID]['routers'][$hostname];
+  } elseif (isset($config['routers'][$hostname])) {
+    $router_config_for_check = $config['routers'][$hostname];
+  }
+  
+  // Check if command is disabled for this router
+  if ($router_config_for_check && isset($router_config_for_check[$query]['disable']) && $router_config_for_check[$query]['disable']) {
+    $error = 'This command has been disabled for this router.';
     print(json_encode(array('error' => $error)));
     return;
   }
-
-  // Check if parameter is an IPv4 and if IPv4 is disabled
-  if (match_ipv4($parameter) && $router_config['disable_ipv4']) {
-    $error = 'IPv4 has been disabled for this router, you can only use IPv6.';
+  
+  // Check if command is enabled in config (for commands that are disabled by default)
+  if (isset($config['doc'][$query]['enabled']) && !$config['doc'][$query]['enabled']) {
+    $error = 'This command has been disabled in the configuration.';
     print(json_encode(array('error' => $error)));
     return;
+  }
+  
+  // Auto-disable justlinux-only commands for non-justlinux routers
+  // Unless explicitly enabled via speed_test['enabled'] config
+  if ($router_config_for_check) {
+    $router_type = strtolower($router_config_for_check['type'] ?? '');
+    $justlinux_only_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 
+                                     'dns-lookup', 'whois-lookup', 'interface-stats', 'system-info');
+    if (in_array($query, $justlinux_only_commands) && $router_type !== 'justlinux') {
+      // Allow speed tests if explicitly enabled
+      if (in_array($query, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
+        if (!isset($router_config_for_check['speed_test']['enabled']) || !$router_config_for_check['speed_test']['enabled']) {
+          $error = 'Speed tests are only available for justlinux router type, or must be explicitly enabled in router configuration.';
+          print(json_encode(array('error' => $error)));
+          return;
+        }
+      } else {
+        // Other justlinux-only commands still require justlinux
+        $error = 'This command is only available for justlinux router type.';
+        print(json_encode(array('error' => $error)));
+        return;
+      }
+    }
+  }
+
+  // Do the processing
+  $router = Router::instance($hostname, $requester, $datacenterID);
+  $router_config = $router->get_config();
+
+  // Commands that don't use IP addresses (skip IP validation)
+  $non_ip_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 'system-info', 'interface-stats');
+  
+  // Check if parameter is an IPv6 and if IPv6 is disabled (only for IP-based commands)
+  if (!in_array($query, $non_ip_commands) && !empty($parameter)) {
+    if (match_ipv6($parameter) && $router_config['disable_ipv6']) {
+      $error = 'IPv6 has been disabled for this router, you can only use IPv4.';
+      print(json_encode(array('error' => $error)));
+      return;
+    }
+
+    // Check if parameter is an IPv4 and if IPv4 is disabled
+    if (match_ipv4($parameter) && $router_config['disable_ipv4']) {
+      $error = 'IPv4 has been disabled for this router, you can only use IPv6.';
+      print(json_encode(array('error' => $error)));
+      return;
+    }
   }
 
   $routing_instance = false;

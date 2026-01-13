@@ -17,3 +17,11 @@ peering_policy.*
 *.db
 *.log
 *.html
+
+# Configuration files with sensitive data #
+config.php
+config.php.*
+!config.php.example
+
+# Ignore home directory #
+home/

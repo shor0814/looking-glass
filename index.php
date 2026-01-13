@@ -109,23 +109,31 @@ final class LookingGlass {
     print('<div class="mb-3">');
     print('<label class="form-label" for="routers">Router to use</label>');
     print('<select size="'.$this->router_count().'" class="form-select" name="routers" id="routers">');
+    
+    // If datacenters are configured, routers will be populated via AJAX
+    // Otherwise, use the global routers array
+    if (!empty($this->datacenters) && $this->seldc) {
+      // Routers will be loaded via AJAX based on selected datacenter
+      // Leave empty for now
+    } else {
+      // No datacenters, use global routers
+      $first = true;
+      foreach (array_keys($this->routers) as $router) {
+        // IPv6 and IPv4 both disabled for the router, ignore it
+        if (isset($this->routers[$router]['disable_ipv6']) && $this->routers[$router]['disable_ipv6'] &&
+            isset($this->routers[$router]['disable_ipv4']) && $this->routers[$router]['disable_ipv4']) {
+          continue;
+        }
 
-    $first = true;
-    foreach (array_keys($this->routers) as $router) {
-      // IPv6 and IPv4 both disabled for the router, ignore it
-      if ($this->routers[$router]['disable_ipv6'] &&
-          $this->routers[$router]['disable_ipv4']) {
-        continue;
+        print('<option value="'.$router.'"');
+        if ($first) {
+          $first = false;
+          print(' selected="selected"');
+          $this->selrouter=$router;
+        }
+        print('>'.($this->routers[$router]['desc'] ?? $router));
+        print('</option>');
       }
-
-      print('<option value="'.$router.'"');
-      if ($first) {
-        $first = false;
-	print(' selected="selected"');
-	$this->selrouter=$router;
-      }
-      print('>'.$this->routers[$router]['desc']);
-      print('</option>');
     }
 
     print('</select>');
@@ -136,13 +144,35 @@ final class LookingGlass {
     print('<div class="mb-3">');
     print('<label class="form-label" for="query">Command to issue</label>');
     print('<select size="'.$this->command_count().'" class="form-select" name="query" id="query">');
-    $selected = ' selected="selected"';
-    foreach (array_keys($this->doc) as $cmd) {
-      if (isset($this->doc[$cmd]['command']) && !isset($this->routers[$selrouter][$cmd]['disable'])) {
-        print('<option value="'.$cmd.'"'.$selected.'>'.$this->doc[$cmd]['command'].'</option>');
+    
+    // If datacenters are configured and we have a selected datacenter, commands will be populated via AJAX
+    if (!empty($this->datacenters) && $this->seldc && $selrouter) {
+      // Commands will be loaded via AJAX based on selected router
+      // Leave empty for now
+    } else {
+      // No datacenters or no router selected, show all commands (will be filtered by AJAX)
+      $selected = ' selected="selected"';
+      foreach (array_keys($this->doc) as $cmd) {
+        if (isset($this->doc[$cmd]['command'])) {
+          // Skip justlinux-only commands if router is not justlinux
+          if ($selrouter && isset($this->routers[$selrouter])) {
+            $router_type = strtolower($this->routers[$selrouter]['type'] ?? '');
+            $justlinux_only = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 
+                                   'dns-lookup', 'whois-lookup', 'interface-stats', 'system-info');
+            if (in_array($cmd, $justlinux_only) && $router_type !== 'justlinux') {
+              continue;
+            }
+            // Check if command is disabled
+            if (isset($this->routers[$selrouter][$cmd]['disable']) && $this->routers[$selrouter][$cmd]['disable']) {
+              continue;
+            }
+          }
+          print('<option value="'.$cmd.'"'.$selected.'>'.$this->doc[$cmd]['command'].'</option>');
+          $selected = '';
+        }
       }
-      $selected = '';
     }
+    
     print('</select>');
     print('</div>');
   }
