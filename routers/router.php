@@ -37,6 +37,7 @@ require_once('vyatta.php');
 require_once('huawei.php');
 require_once('tnsr.php');
 require_once('justlinux.php');
+require_once('speedtest.php');
 require_once('includes/utils.php');
 require_once('auth/authentication.php');
 
@@ -317,6 +318,9 @@ abstract class Router {
 
       case 'justlinux':
         return new JustLinux($config, $router_config, $id, $requester, $datacenter_id);
+
+      case 'speedtest':
+        return new Speedtest($config, $router_config, $id, $requester, $datacenter_id);
 
       case 'vyatta':
       case 'vyos':

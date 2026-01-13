@@ -137,6 +137,11 @@ $config['tools']['traceroute6'] = 'traceroute6';
 $config['tools']['traceroute4'] = 'traceroute';
 
 // Speed test configuration (optional)
+// Speed tests can be performed by:
+// 1. Justlinux routers (native support - automatically available, visible in UI)
+// 2. Speedtest routers (dedicated speed test servers - hidden from UI by default)
+// 3. Any router that delegates to another router (configured via speed_test['router'])
+//
 // Base URL can be set at multiple levels (priority: router > datacenter > global > auto-detect)
 // Global level (applies to all routers unless overridden):
 //$config['speed_test']['base_url'] = 'https://lg.example.com';
@@ -144,7 +149,22 @@ $config['tools']['traceroute4'] = 'traceroute';
 //$config['datacenters']['dc1']['speed_test']['base_url'] = 'https://cdn-dc1.example.com';
 // Router level (applies only to that specific router):
 //$config['datacenters']['dc1']['routers']['router1']['speed_test']['base_url'] = 'https://cdn-router1.example.com';
-// Leave unset to auto-detect from the current request (recommended for Caddy)
+//
+// Example: Create a dedicated speed test server (hidden from UI):
+//$config['datacenters']['dc1']['routers']['speedtest-server']['type'] = 'speedtest';
+//$config['datacenters']['dc1']['routers']['speedtest-server']['host'] = 'speedtest.dc1.example.com';
+//$config['datacenters']['dc1']['routers']['speedtest-server']['user'] = 'lg';
+//$config['datacenters']['dc1']['routers']['speedtest-server']['auth'] = 'ssh-password';
+//$config['datacenters']['dc1']['routers']['speedtest-server']['pass'] = 'password';
+//$config['datacenters']['dc1']['routers']['speedtest-server']['desc'] = 'DC1 Speed Test Server';
+//
+// Example: Delegate speed tests to a speedtest router:
+//$config['datacenters']['dc1']['routers']['router2']['speed_test']['router'] = 'speedtest-server';
+//
+// Example: Delegate speed tests to a justlinux router:
+//$config['datacenters']['dc1']['routers']['router3']['speed_test']['router'] = 'justlinux-router';
+//
+// Leave base_url unset to auto-detect from the current request (recommended for Caddy)
 
 // Enable optional justlinux-only commands (disabled by default)
 // These commands are only available for justlinux router type

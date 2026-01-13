@@ -28,6 +28,31 @@ require_once('includes/utils.php');
 // From where the user *really* comes from.
 $requester = get_requester_ip();
 
+/**
+ * Check if speed tests are available for a router
+ * Speed tests are available if:
+ * 1. Router is justlinux or speedtest (native support), OR
+ * 2. Router has speed_test['router'] configured (delegation)
+ * 
+ * @param array $router_config The router configuration
+ * @return bool True if speed tests are available
+ */
+function speed_tests_available($router_config) {
+  $router_type = strtolower($router_config['type'] ?? '');
+  
+  // Native support for justlinux and speedtest routers
+  if ($router_type === 'justlinux' || $router_type === 'speedtest') {
+    return true;
+  }
+  
+  // Delegation support - check if router delegates to another router
+  if (isset($router_config['speed_test']['router']) && !empty($router_config['speed_test']['router'])) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Check for spam
 if ($config['antispam']['enabled']) {
   $antispam = new AntiSpam($config['antispam']);
@@ -88,15 +113,11 @@ if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue']
     }
     
     // Auto-disable justlinux-only commands for non-justlinux routers
-    // Unless explicitly enabled via speed_test['enabled'] config
+    // Speed tests are available if router is justlinux OR delegates to another router
     if (!$is_disabled && in_array($cmd, $justlinux_only_commands) && $router_type !== 'justlinux') {
-      // Check if speed test is explicitly enabled for this router
+      // Check if speed test is available (native justlinux OR delegation)
       if (in_array($cmd, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
-        $speed_test_enabled = false;
-        if (isset($router_config['speed_test']['enabled']) && $router_config['speed_test']['enabled']) {
-          $speed_test_enabled = true;
-        }
-        if (!$speed_test_enabled) {
+        if (!speed_tests_available($router_config)) {
           $is_disabled = true;
         }
       } else {
@@ -141,6 +162,12 @@ if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacente
         continue;
       }
       
+      // Hide speedtest routers from UI by default (they're for delegation only)
+      $router_type = strtolower($router_config['type'] ?? '');
+      if ($router_type === 'speedtest') {
+        continue;
+      }
+      
       $html .= '<option value="' . htmlspecialchars($routerID) . '"' . $selected . '>';
       $html .= htmlspecialchars($router_config['desc'] ?? $routerID);
       $html .= '</option>';
@@ -156,6 +183,12 @@ if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacente
         // Skip if both IPv4 and IPv6 are disabled
         if (isset($router_config['disable_ipv6']) && $router_config['disable_ipv6'] &&
             isset($router_config['disable_ipv4']) && $router_config['disable_ipv4']) {
+          continue;
+        }
+        
+        // Hide speedtest routers from UI by default (they're for delegation only)
+        $router_type = strtolower($router_config['type'] ?? '');
+        if ($router_type === 'speedtest') {
           continue;
         }
         
@@ -239,16 +272,16 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
   }
   
   // Auto-disable justlinux-only commands for non-justlinux routers
-  // Unless explicitly enabled via speed_test['enabled'] config
+  // Speed tests are available if router is justlinux OR delegates to another router
   if ($router_config_for_check) {
     $router_type = strtolower($router_config_for_check['type'] ?? '');
     $justlinux_only_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 
                                      'dns-lookup', 'whois-lookup', 'interface-stats', 'system-info');
     if (in_array($query, $justlinux_only_commands) && $router_type !== 'justlinux') {
-      // Allow speed tests if explicitly enabled
+      // Check if speed tests are available (native justlinux OR delegation)
       if (in_array($query, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
-        if (!isset($router_config_for_check['speed_test']['enabled']) || !$router_config_for_check['speed_test']['enabled']) {
-          $error = 'Speed tests are only available for justlinux router type, or must be explicitly enabled in router configuration.';
+        if (!speed_tests_available($router_config_for_check)) {
+          $error = 'Speed tests are only available for justlinux/speedtest router types, or when delegated to another router.';
           print(json_encode(array('error' => $error)));
           return;
         }
@@ -261,8 +294,32 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
     }
   }
 
-  // Do the processing
-  $router = Router::instance($hostname, $requester, $datacenterID);
+  // Check if speed test should be delegated to another router
+  $actual_router_id = $hostname;
+  $actual_datacenter_id = $datacenterID;
+  $speed_test_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb');
+  
+  if ($router_config_for_check && in_array($query, $speed_test_commands)) {
+    // Check if router delegates speed tests to another router
+    if (isset($router_config_for_check['speed_test']['router']) && !empty($router_config_for_check['speed_test']['router'])) {
+      $actual_router_id = $router_config_for_check['speed_test']['router'];
+      // Delegated router should be in the same datacenter
+      // Verify the delegated router exists
+      if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$actual_router_id])) {
+        // Delegated router exists in the same datacenter
+      } elseif (isset($config['routers'][$actual_router_id])) {
+        // Delegated router exists in global routers (legacy)
+        $actual_datacenter_id = null;
+      } else {
+        $error = 'Delegated speed test router "' . htmlspecialchars($actual_router_id) . '" not found.';
+        print(json_encode(array('error' => $error)));
+        return;
+      }
+    }
+  }
+
+  // Do the processing - use actual router (delegated if specified)
+  $router = Router::instance($actual_router_id, $requester, $actual_datacenter_id);
   $router_config = $router->get_config();
 
   // Commands that don't use IP addresses (skip IP validation)
