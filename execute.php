@@ -29,27 +29,106 @@ require_once('includes/utils.php');
 $requester = get_requester_ip();
 
 /**
+ * Check if a router type has speed test implementation
+ * Only justlinux and speedtest router types have implementations
+ * 
+ * @param string $router_type The router type
+ * @return bool True if router type supports speed tests
+ */
+function router_supports_speed_tests($router_type) {
+  $router_type = strtolower($router_type);
+  return ($router_type === 'justlinux' || $router_type === 'speedtest');
+}
+
+/**
+ * Check if a router type has DNS/WHOIS lookup implementation
+ * Only justlinux and speedtest router types have implementation
+ * 
+ * @param string $router_type The router type
+ * @return bool True if router type supports DNS/WHOIS
+ */
+function router_supports_dns_whois($router_type) {
+  $router_type = strtolower($router_type);
+  return ($router_type === 'justlinux' || $router_type === 'speedtest');
+}
+
+/**
  * Check if speed tests are available for a router
  * Speed tests are available if:
- * 1. Router is justlinux or speedtest (native support), OR
- * 2. Router has speed_test['router'] configured (delegation)
+ * 1. Router has speed_test['router'] configured (router-level delegation), OR
+ * 2. Datacenter has speed_test['router'] configured (DC-level delegation), OR
+ * 3. Router has speed_test['disabled'] = false AND router type supports speed tests
+ * 
+ * Default: speed tests are disabled (disabled=true) for all router types
  * 
  * @param array $router_config The router configuration
+ * @param array $datacenter_config The datacenter configuration (optional)
  * @return bool True if speed tests are available
  */
-function speed_tests_available($router_config) {
+function speed_tests_available($router_config, $datacenter_config = null) {
   $router_type = strtolower($router_config['type'] ?? '');
   
-  // Native support for justlinux and speedtest routers
-  if ($router_type === 'justlinux' || $router_type === 'speedtest') {
-    return true;
-  }
-  
-  // Delegation support - check if router delegates to another router
+  // Check if router has router-level delegation (highest priority)
   if (isset($router_config['speed_test']['router']) && !empty($router_config['speed_test']['router'])) {
     return true;
   }
   
+  // Check if datacenter has DC-level delegation
+  if ($datacenter_config && isset($datacenter_config['speed_test']['router']) && !empty($datacenter_config['speed_test']['router'])) {
+    return true;
+  }
+  
+  // Check if router explicitly enabled speed tests (disabled=false)
+  // Only allow this if the router type has speed test implementation
+  if (isset($router_config['speed_test']['disabled']) && $router_config['speed_test']['disabled'] === false) {
+    if (router_supports_speed_tests($router_type)) {
+      return true;
+    }
+    // Router type doesn't support speed tests, ignore disabled=false
+  }
+  
+  // Default: speed tests are disabled
+  return false;
+}
+
+/**
+ * Check if DNS/WHOIS lookup is available for a router
+ * DNS/WHOIS is available if:
+ * 1. Router has dns_lookup['router'] or whois_lookup['router'] configured (router-level delegation), OR
+ * 2. Datacenter has dns_lookup['router'] or whois_lookup['router'] configured (DC-level delegation), OR
+ * 3. Router has dns_lookup['disabled'] = false or whois_lookup['disabled'] = false AND router type supports it
+ * 
+ * Default: DNS/WHOIS are disabled (disabled=true) for all router types
+ * 
+ * @param array $router_config The router configuration
+ * @param array $datacenter_config The datacenter configuration (optional)
+ * @param string $command_type Either 'dns-lookup' or 'whois-lookup'
+ * @return bool True if DNS/WHOIS is available
+ */
+function dns_whois_available($router_config, $datacenter_config = null, $command_type = 'dns-lookup') {
+  $router_type = strtolower($router_config['type'] ?? '');
+  $config_key = ($command_type === 'whois-lookup') ? 'whois_lookup' : 'dns_lookup';
+  
+  // Check if router has router-level delegation (highest priority)
+  if (isset($router_config[$config_key]['router']) && !empty($router_config[$config_key]['router'])) {
+    return true;
+  }
+  
+  // Check if datacenter has DC-level delegation
+  if ($datacenter_config && isset($datacenter_config[$config_key]['router']) && !empty($datacenter_config[$config_key]['router'])) {
+    return true;
+  }
+  
+  // Check if router explicitly enabled DNS/WHOIS (disabled=false)
+  // Only allow this if the router type has DNS/WHOIS implementation
+  if (isset($router_config[$config_key]['disabled']) && $router_config[$config_key]['disabled'] === false) {
+    if (router_supports_dns_whois($router_type)) {
+      return true;
+    }
+    // Router type doesn't support DNS/WHOIS, ignore disabled=false
+  }
+  
+  // Default: DNS/WHOIS are disabled
   return false;
 }
 
@@ -65,7 +144,7 @@ if (isset($_POST['doc']) && !empty($_POST['doc'])) {
   $query = htmlspecialchars($_POST['doc']);
   
   if (isset($config['doc'][$query])) {
-    print(json_encode($config['doc'][$query]));
+  print(json_encode($config['doc'][$query]));
   } else {
     print(json_encode(array('error' => 'Documentation not found for command: ' . $query)));
   }
@@ -80,15 +159,20 @@ if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue']
   
   // Get router config - check datacenter-scoped first, then global
   $router_config = null;
-  if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$routerID])) {
-    $router_config = $config['datacenters'][$datacenterID]['routers'][$routerID];
-  } elseif (isset($config['routers'][$routerID])) {
+  $datacenter_config = null;
+  if ($datacenterID && isset($config['datacenters'][$datacenterID])) {
+    $datacenter_config = $config['datacenters'][$datacenterID];
+    if (isset($datacenter_config['routers'][$routerID])) {
+      $router_config = $datacenter_config['routers'][$routerID];
+    }
+  }
+  if (!$router_config && isset($config['routers'][$routerID])) {
     $router_config = $config['routers'][$routerID];
   }
   
   if (!$router_config) {
     // Router not found, return empty
-    return;
+  return;
   }
   
   $html = '';
@@ -112,18 +196,23 @@ if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue']
       $is_disabled = true;
     }
     
-    // Auto-disable justlinux-only commands for non-justlinux routers
-    // Speed tests are available if router is justlinux OR delegates to another router
-    if (!$is_disabled && in_array($cmd, $justlinux_only_commands) && $router_type !== 'justlinux') {
-      // Check if speed test is available (native justlinux OR delegation)
-      if (in_array($cmd, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
-        if (!speed_tests_available($router_config)) {
-          $is_disabled = true;
-        }
-      } else {
-        // Other justlinux-only commands (DNS, WHOIS, etc.) still require justlinux
+    // Speed tests: Check if enabled via delegation or explicit disabled=false
+    if (!$is_disabled && in_array($cmd, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
+      // Speed tests are disabled by default - check if enabled
+      if (!speed_tests_available($router_config, $datacenter_config)) {
         $is_disabled = true;
       }
+    }
+    // DNS/WHOIS lookup: Check if enabled via delegation or explicit disabled=false
+    elseif (!$is_disabled && in_array($cmd, array('dns-lookup', 'whois-lookup'))) {
+      // DNS/WHOIS are disabled by default - check if enabled
+      if (!dns_whois_available($router_config, $datacenter_config, $cmd)) {
+        $is_disabled = true;
+      }
+    }
+    // Other justlinux-only commands (interface-stats, system-info) still require justlinux
+    elseif (!$is_disabled && in_array($cmd, $justlinux_only_commands) && $router_type !== 'justlinux') {
+      $is_disabled = true;
     }
     
     if (isset($config['doc'][$cmd]['command']) && $command_enabled && !$is_disabled) {
@@ -194,8 +283,8 @@ if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacente
         
         $html .= '<option value="' . htmlspecialchars($routerID) . '"' . $selected . '>';
         $html .= htmlspecialchars($router_config['desc'] ?? $routerID);
-        $html .= '</option>';
-        $selected = '';
+	$html .= '</option>';
+	$selected = '';
       }
     }
   }
@@ -271,50 +360,93 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
     return;
   }
   
-  // Auto-disable justlinux-only commands for non-justlinux routers
-  // Speed tests are available if router is justlinux OR delegates to another router
+  // Get datacenter config for delegation checks
+  $datacenter_config_for_check = null;
+  if ($datacenterID && isset($config['datacenters'][$datacenterID])) {
+    $datacenter_config_for_check = $config['datacenters'][$datacenterID];
+  }
+  
+  // Auto-disable justlinux-only commands
+  // Speed tests and DNS/WHOIS are disabled by default - check if enabled
   if ($router_config_for_check) {
     $router_type = strtolower($router_config_for_check['type'] ?? '');
     $justlinux_only_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 
                                      'dns-lookup', 'whois-lookup', 'interface-stats', 'system-info');
-    if (in_array($query, $justlinux_only_commands) && $router_type !== 'justlinux') {
-      // Check if speed tests are available (native justlinux OR delegation)
+    if (in_array($query, $justlinux_only_commands)) {
+      // Check if speed tests are available
       if (in_array($query, array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb'))) {
-        if (!speed_tests_available($router_config_for_check)) {
-          $error = 'Speed tests are only available for justlinux/speedtest router types, or when delegated to another router.';
+        if (!speed_tests_available($router_config_for_check, $datacenter_config_for_check)) {
+          $error = 'Speed tests are disabled by default. Enable via DC-level or router-level delegation, or set disabled=false with implementation.';
           print(json_encode(array('error' => $error)));
           return;
         }
-      } else {
-        // Other justlinux-only commands still require justlinux
-        $error = 'This command is only available for justlinux router type.';
-        print(json_encode(array('error' => $error)));
-        return;
+      }
+      // Check if DNS/WHOIS lookup is available
+      elseif (in_array($query, array('dns-lookup', 'whois-lookup'))) {
+        if (!dns_whois_available($router_config_for_check, $datacenter_config_for_check, $query)) {
+          $error = 'DNS/WHOIS lookup is disabled by default. Enable via DC-level or router-level delegation, or set disabled=false with implementation.';
+          print(json_encode(array('error' => $error)));
+          return;
+        }
+      }
+      // Other justlinux-only commands (interface-stats, system-info) still require justlinux
+      else {
+        if ($router_type !== 'justlinux') {
+          $error = 'This command is only available for justlinux router type.';
+          print(json_encode(array('error' => $error)));
+          return;
+        }
       }
     }
   }
 
-  // Check if speed test should be delegated to another router
+  // Check if command should be delegated to another router
   $actual_router_id = $hostname;
   $actual_datacenter_id = $datacenterID;
   $speed_test_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb');
+  $dns_whois_commands = array('dns-lookup', 'whois-lookup');
   
-  if ($router_config_for_check && in_array($query, $speed_test_commands)) {
-    // Check if router delegates speed tests to another router
-    if (isset($router_config_for_check['speed_test']['router']) && !empty($router_config_for_check['speed_test']['router'])) {
-      $actual_router_id = $router_config_for_check['speed_test']['router'];
-      // Delegated router should be in the same datacenter
-      // Verify the delegated router exists
-      if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$actual_router_id])) {
-        // Delegated router exists in the same datacenter
-      } elseif (isset($config['routers'][$actual_router_id])) {
-        // Delegated router exists in global routers (legacy)
-        $actual_datacenter_id = null;
-      } else {
-        $error = 'Delegated speed test router "' . htmlspecialchars($actual_router_id) . '" not found.';
-        print(json_encode(array('error' => $error)));
-        return;
+  if ($router_config_for_check && (in_array($query, $speed_test_commands) || in_array($query, $dns_whois_commands))) {
+    // Priority: router-level delegation > DC-level delegation > use router itself (if disabled=false)
+    $delegated_router = null;
+    $config_key = null;
+    
+    // Determine config key based on command type
+    if (in_array($query, $speed_test_commands)) {
+      $config_key = 'speed_test';
+    } elseif ($query === 'dns-lookup') {
+      $config_key = 'dns_lookup';
+    } elseif ($query === 'whois-lookup') {
+      $config_key = 'whois_lookup';
+    }
+    
+    if ($config_key) {
+      // 1. Check router-level delegation (highest priority)
+      if (isset($router_config_for_check[$config_key]['router']) && !empty($router_config_for_check[$config_key]['router'])) {
+        $delegated_router = $router_config_for_check[$config_key]['router'];
       }
+      // 2. Check DC-level delegation
+      elseif ($datacenter_config_for_check && isset($datacenter_config_for_check[$config_key]['router']) && !empty($datacenter_config_for_check[$config_key]['router'])) {
+        $delegated_router = $datacenter_config_for_check[$config_key]['router'];
+      }
+      
+      // If delegation is configured, use the delegated router
+      if ($delegated_router) {
+        $actual_router_id = $delegated_router;
+        // Verify the delegated router exists
+        if ($datacenterID && isset($config['datacenters'][$datacenterID]['routers'][$actual_router_id])) {
+          // Delegated router exists in the same datacenter
+          $actual_datacenter_id = $datacenterID;
+        } elseif (isset($config['routers'][$actual_router_id])) {
+          // Delegated router exists in global routers (legacy)
+          $actual_datacenter_id = null;
+        } else {
+          $error = 'Delegated router "' . htmlspecialchars($actual_router_id) . '" for ' . $query . ' not found.';
+          print(json_encode(array('error' => $error)));
+          return;
+        }
+      }
+      // If no delegation and disabled=false, use the router itself (must have implementation)
     }
   }
 
@@ -327,17 +459,17 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
   
   // Check if parameter is an IPv6 and if IPv6 is disabled (only for IP-based commands)
   if (!in_array($query, $non_ip_commands) && !empty($parameter)) {
-    if (match_ipv6($parameter) && $router_config['disable_ipv6']) {
-      $error = 'IPv6 has been disabled for this router, you can only use IPv4.';
-      print(json_encode(array('error' => $error)));
-      return;
-    }
+  if (match_ipv6($parameter) && $router_config['disable_ipv6']) {
+    $error = 'IPv6 has been disabled for this router, you can only use IPv4.';
+    print(json_encode(array('error' => $error)));
+    return;
+  }
 
-    // Check if parameter is an IPv4 and if IPv4 is disabled
-    if (match_ipv4($parameter) && $router_config['disable_ipv4']) {
-      $error = 'IPv4 has been disabled for this router, you can only use IPv6.';
-      print(json_encode(array('error' => $error)));
-      return;
+  // Check if parameter is an IPv4 and if IPv4 is disabled
+  if (match_ipv4($parameter) && $router_config['disable_ipv4']) {
+    $error = 'IPv4 has been disabled for this router, you can only use IPv6.';
+    print(json_encode(array('error' => $error)));
+    return;
     }
   }
 

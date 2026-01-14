@@ -111,11 +111,60 @@ final class Speedtest extends UNIX {
   }
 
   protected function build_dns_lookup($parameter, $routing_instance = false) {
-    throw new \LogicException(__CLASS__ . ' driver does not support ' . __FUNCTION__);
+    if (empty($parameter)) {
+      throw new Exception('DNS lookup requires a hostname or IP address parameter.');
+    }
+
+    $cmd = new CommandBuilder();
+    
+    // Check if parameter is an IP address (reverse DNS) or hostname (forward DNS)
+    if (filter_var($parameter, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
+      // Reverse DNS lookup
+      $cmd->add('echo "=== Reverse DNS Lookup for ' . escapeshellarg($parameter) . ' ===" && ');
+      $cmd->add('dig +short -x ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== Additional PTR Records ===" && ');
+      $cmd->add('dig +noall +answer -x ' . escapeshellarg($parameter));
+    } else {
+      // Forward DNS lookup
+      $cmd->add('echo "=== Forward DNS Lookup for ' . escapeshellarg($parameter) . ' ===" && ');
+      $cmd->add('echo "" && echo "=== A Records (IPv4) ===" && ');
+      $cmd->add('dig +short A ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== AAAA Records (IPv6) ===" && ');
+      $cmd->add('dig +short AAAA ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== MX Records ===" && ');
+      $cmd->add('dig +short MX ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== NS Records ===" && ');
+      $cmd->add('dig +short NS ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== TXT Records ===" && ');
+      $cmd->add('dig +short TXT ' . escapeshellarg($parameter) . ' && ');
+      $cmd->add('echo "" && echo "=== Full DNS Information ===" && ');
+      $cmd->add('dig +noall +answer ' . escapeshellarg($parameter));
+    }
+
+    return array($cmd);
   }
 
   protected function build_whois_lookup($parameter, $routing_instance = false) {
-    throw new \LogicException(__CLASS__ . ' driver does not support ' . __FUNCTION__);
+    if (empty($parameter)) {
+      throw new Exception('WHOIS lookup requires an IP address or ASN parameter.');
+    }
+
+    $cmd = new CommandBuilder();
+    
+    // Check if parameter is an ASN (starts with AS or is numeric)
+    if (preg_match('/^(AS)?(\d+)$/i', $parameter, $matches)) {
+      $asn = $matches[2];
+      $cmd->add('echo "=== WHOIS Lookup for AS' . $asn . ' ===" && ');
+      $cmd->add('whois AS' . $asn . ' 2>&1 | head -100');
+    } elseif (filter_var($parameter, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
+      // IP address WHOIS
+      $cmd->add('echo "=== WHOIS Lookup for ' . escapeshellarg($parameter) . ' ===" && ');
+      $cmd->add('whois ' . escapeshellarg($parameter) . ' 2>&1 | head -100');
+    } else {
+      throw new Exception('WHOIS lookup parameter must be an IP address or AS number.');
+    }
+
+    return array($cmd);
   }
 
   protected function build_interface_stats($parameter, $routing_instance = false) {
