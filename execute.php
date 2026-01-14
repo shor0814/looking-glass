@@ -29,6 +29,21 @@ require_once('includes/utils.php');
 $requester = get_requester_ip();
 
 /**
+ * Validate router or datacenter ID format for security.
+ * Only allows alphanumeric characters, underscores, and hyphens.
+ * 
+ * @param  string  $id the ID to validate.
+ * @return boolean true if the ID is valid, false otherwise.
+ */
+function validate_router_id($id) {
+  if (empty($id) || !is_string($id)) {
+    return false;
+  }
+  // Alphanumeric, underscore, hyphen only, max 64 characters
+  return preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $id) === 1;
+}
+
+/**
  * Check if a router type has speed test implementation
  * Only justlinux and speedtest router types have implementations
  * 
@@ -153,8 +168,20 @@ if (isset($_POST['doc']) && !empty($_POST['doc'])) {
 
 // Just updating the router commands (check this FIRST to avoid conflicts)
 if (isset($_POST['selectedRouterValue']) && !empty($_POST['selectedRouterValue'])) {
-  $routerID = $_POST['selectedRouterValue'];
-  $datacenterID = isset($_POST['selectedDatacenterValue']) ? $_POST['selectedDatacenterValue'] : null;
+  $routerID = trim($_POST['selectedRouterValue']);
+  $datacenterID = isset($_POST['selectedDatacenterValue']) ? trim($_POST['selectedDatacenterValue']) : null;
+  
+  // Validate router ID format
+  if (!validate_router_id($routerID)) {
+    print(json_encode(array('error' => 'Invalid router ID format.')));
+    return;
+  }
+  
+  // Validate datacenter ID format if provided
+  if ($datacenterID !== null && !validate_router_id($datacenterID)) {
+    print(json_encode(array('error' => 'Invalid datacenter ID format.')));
+    return;
+  }
   $doc = $config['doc'];
   
   // Get router config - check datacenter-scoped first, then global
@@ -232,6 +259,12 @@ if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacente
     (!isset($_POST['selectedRouterValue']) || empty($_POST['selectedRouterValue']))) {
   $datacenterID = trim($_POST['selectedDatacenterValue']);
   
+  // Validate datacenter ID format
+  if (!validate_router_id($datacenterID)) {
+    print(json_encode(array('error' => 'Invalid datacenter ID format.')));
+    return;
+  }
+  
   if (!isset($config['datacenters'][$datacenterID])) {
     print(''); // Return empty if datacenter not found
     return;
@@ -298,6 +331,13 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
   $query = trim($_POST['query']);
   $hostname = trim($_POST['routers']);
   $parameter = isset($_POST['parameter']) ? trim($_POST['parameter']) : '';
+  
+  // Validate router ID format
+  if (!validate_router_id($hostname)) {
+    $error = 'Invalid router ID format.';
+    print(json_encode(array('error' => $error)));
+    return;
+  }
 
   // Commands that don't require parameters
   $no_parameter_commands = array('speed-test-1mb', 'speed-test-10mb', 'speed-test-100mb', 'system-info');
@@ -325,7 +365,14 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
   }
 
   // Get datacenter ID if provided
-  $datacenterID = isset($_POST['datacenters']) ? $_POST['datacenters'] : null;
+  $datacenterID = isset($_POST['datacenters']) ? trim($_POST['datacenters']) : null;
+  
+  // Validate datacenter ID format if provided
+  if ($datacenterID !== null && !validate_router_id($datacenterID)) {
+    $error = 'Invalid datacenter ID format.';
+    print(json_encode(array('error' => $error)));
+    return;
+  }
   
   // Validate that the router exists in the selected datacenter (if datacenter is provided)
   if ($datacenterID) {
@@ -477,15 +524,20 @@ if (isset($_POST['query']) && !empty($_POST['query']) &&
   if (isset($_POST['routing_instance']) &&
       mb_strtolower($_POST['routing_instance']) !== 'none' &&
       count($config['routing_instances']) > 0) {
-    if (empty(trim($_POST['routing_instance']))) {
+    $routing_instance_param = trim($_POST['routing_instance']);
+    if (empty($routing_instance_param)) {
       $error = 'Empty routing instance.';
       print(json_encode(array('error' => $error)));
-    } elseif (!array_key_exists($_POST['routing_instance'], $config['routing_instances'])) {
+    } elseif (!validate_router_id($routing_instance_param)) {
+      // Validate routing instance ID format
+      $error = 'Invalid routing instance ID format.';
+      print(json_encode(array('error' => $error)));
+    } elseif (!array_key_exists($routing_instance_param, $config['routing_instances'])) {
       // Avoid people trying to use a crafted routing instance name
       $error = 'Invalid routing instance. Given routing instance is not configured.';
       print(json_encode(array('error' => $error)));
     } else {
-      $routing_instance = $_POST['routing_instance'];
+      $routing_instance = $routing_instance_param;
     }
   }
   log_to_file($routing_instance);

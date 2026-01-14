@@ -263,20 +263,29 @@ function match_aspath_regexp($aspath_regexp) {
     return false;
   }
 
-  // AS path containing a ; (not a valid character)
-  if (strpos($aspath_regexp, ';') !== false) {
+  // Reject shell metacharacters that could be used for command injection
+  // Note: ^ and $ are allowed as they are valid regex anchors
+  $dangerous_chars = array(';', '"', "'", '|', '&', '`', '\\', "\n", "\r");
+  foreach ($dangerous_chars as $char) {
+    if (strpos($aspath_regexp, $char) !== false) {
+      return false;
+    }
+  }
+
+  // Reject command substitution attempts ($(command) or `command`)
+  if (preg_match('/\$\(|`/', $aspath_regexp)) {
     return false;
   }
 
-  // AS path containing a " (not a valid character, the string is automatically
-  // quoted if needed)
-  if (strpos($aspath_regexp, '"') !== false) {
+  // Reject shell variable substitution ($VAR or ${VAR})
+  // This blocks patterns like $VAR, ${VAR} but allows $ at end (regex anchor)
+  // We allow $ at the very end or when followed by non-word characters
+  if (preg_match('/\$[a-zA-Z_\{]|\$\{[^}]*\}/', $aspath_regexp)) {
     return false;
   }
 
-  // AS path containing a ' (not a valid character, the string is automatically
-  // quoted if needed)
-  if (strpos($aspath_regexp, '\'') !== false) {
+  // Reject null bytes
+  if (strpos($aspath_regexp, "\0") !== false) {
     return false;
   }
 

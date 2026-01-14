@@ -153,9 +153,13 @@ final class JustLinux extends UNIX {
     
     // Check if parameter is an ASN (starts with AS or is numeric)
     if (preg_match('/^(AS)?(\d+)$/i', $parameter, $matches)) {
+      if (!isset($matches[2])) {
+        throw new Exception('Invalid ASN format.');
+      }
       $asn = $matches[2];
-      $cmd->add('echo "=== WHOIS Lookup for AS' . $asn . ' ===" && ');
-      $cmd->add('whois AS' . $asn . ' 2>&1 | head -100');
+      $asn_escaped = escapeshellarg('AS' . $asn);
+      $cmd->add('echo "=== WHOIS Lookup for ' . $asn_escaped . ' ===" && ');
+      $cmd->add('whois ' . $asn_escaped . ' 2>&1 | head -100');
     } elseif (filter_var($parameter, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
       // IP address WHOIS
       $cmd->add('echo "=== WHOIS Lookup for ' . escapeshellarg($parameter) . ' ===" && ');
