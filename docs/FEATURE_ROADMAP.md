@@ -2,27 +2,72 @@
 
 This document outlines common features found in looking glass applications that could be added to enhance functionality.
 
-## Currently Implemented Features
+## Discussion #198 Draft (Upgrades Completed and In-Progress)
+
+Reference discussion: https://github.com/gmazoyer/looking-glass/discussions/198
+
+### Completed
+
+- ✅ TNSR support (restricted user / rbash friendly)
+- ✅ MTR option for TNSR
+- ✅ "Just Plain Linux" router (justlinux) for Ping/Traceroute/MTR and tools
+- ✅ Per-router command enable/disable
+- ✅ Command list updates dynamically per router
+- ✅ Multi-datacenter support (datacenter-scoped routers)
+- ✅ File download speed tests (1MB, 10MB, 100MB)
+- ✅ DNS lookup (forward + reverse) with delegation
+- ✅ WHOIS lookup (IP + ASN) with delegation
+- ✅ Dedicated `speedtest` router type for delegated tools
+- ✅ Input sanitization and injection hardening
+
+### In-Progress
+
+- ⏳ None active at the moment (add here if new work starts)
+
+### New Items Since Original Post
+
+- ✅ Delegation system (speed tests, DNS, WHOIS) at datacenter/router level
+- ✅ Interface statistics + system information (justlinux, disabled by default)
+- ✅ VyOS implementation synced from upstream
+
+## Progress
+
+### Completed (This Fork)
+
+- ✅ Multi-datacenter support (datacenter-scoped routers)
+- ✅ File download speed tests (1MB, 10MB, 100MB)
+- ✅ DNS lookup (forward + reverse)
+- ✅ WHOIS lookup (IP + ASN)
+- ✅ Delegation system for speed tests, DNS, and WHOIS
+- ✅ Interface statistics (justlinux, disabled by default)
+- ✅ System information (justlinux, disabled by default)
+- ✅ New router types: TNSR, justlinux, speedtest, VyOS update
+- ✅ Security hardening for input validation and command injection mitigation
+
+### Implemented (Limited Router Types)
+
+- ✅ MTR (My Traceroute) - implemented for `justlinux`, `speedtest`, and `tnsr` only
+  - Other router types do not currently expose MTR
+
+## Currently Implemented Features (Upstream Baseline)
 
 - ✅ Ping (IPv4/IPv6)
 - ✅ Traceroute (IPv4/IPv6)
 - ✅ BGP Route Lookup
 - ✅ AS Path Regex Search
 - ✅ AS Number Lookup
-- ✅ MTR (My Traceroute) - partially implemented
+- ✅ MTR (My Traceroute) - implemented only where router drivers support it
 
 ## Recommended Features to Add
 
 ### 1. Network Diagnostic Tools
 
-#### Speed Tests
-- **File Download Speed Test** (Your Request)
-  - Download test files of various sizes (1MB, 10MB, 100MB, 1GB)
-  - Measure download speed, latency, and throughput
-  - Support for IPv4 and IPv6
-  - Multiple test servers/locations
-  - Real-time progress display
-  - Results: Download speed (Mbps/Gbps), latency, packet loss
+#### Speed Tests (Completed)
+- **File Download Speed Test**
+  - Download test files of various sizes (1MB, 10MB, 100MB)
+  - Results displayed in multiple formats (bytes/sec, Mb/sec, Gb/sec, MB/sec, GB/sec)
+  - Delegation to dedicated speed test servers (`speedtest` / `justlinux`)
+  - Configurable base URL at global, datacenter, or router level
 
 - **Bandwidth Test**
   - Upload speed test
@@ -96,17 +141,13 @@ This document outlines common features found in looking glass applications that 
 
 ### 3. DNS and Network Information
 
-- **DNS Lookup**
-  - Forward DNS (A, AAAA, MX, TXT, NS, CNAME records)
-  - Reverse DNS (PTR records)
-  - DNS over IPv6
-  - Multiple DNS server selection
+- **DNS Lookup** (Completed)
+  - Forward and reverse lookup support
+  - Delegation to `speedtest` / `justlinux`
 
-- **WHOIS Lookup**
-  - IP address WHOIS
-  - ASN WHOIS
-  - Domain WHOIS
-  - RIR information (ARIN, RIPE, APNIC, etc.)
+- **WHOIS Lookup** (Completed)
+  - IP and ASN WHOIS
+  - Delegation to `speedtest` / `justlinux`
 
 - **IP Geolocation**
   - Geographic location of IP addresses
@@ -115,7 +156,7 @@ This document outlines common features found in looking glass applications that 
 
 ### 4. Network Statistics and Monitoring
 
-- **Interface Statistics**
+- **Interface Statistics** (Completed)
   - Interface utilization (in/out bytes, packets)
   - Error counters
   - Interface status (up/down)
@@ -126,7 +167,7 @@ This document outlines common features found in looking glass applications that 
   - Protocol distribution
   - Traffic graphs (if data collection enabled)
 
-- **System Information**
+- **System Information** (Completed)
   - Router model/version
   - Uptime
   - CPU/Memory utilization
@@ -205,7 +246,7 @@ This document outlines common features found in looking glass applications that 
   - Already implemented (color-mode.js)
   - Ensure all new features support it
 
-### 9. Multi-Datacenter Features (Already Implemented!)
+### 9. Multi-Datacenter Features (Already Implemented)
 
 - ✅ Datacenter selection
 - ✅ Router selection per datacenter

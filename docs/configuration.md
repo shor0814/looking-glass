@@ -159,6 +159,17 @@ Possible values are:
   * frr
   * huawei
 
+### Command Availability
+
+The command list in the UI is dynamic. Commands only appear when the selected
+router type supports them or when delegation/explicit enablement allows them.
+If a router type does not implement a command, it is hidden.
+
+- **MTR** is implemented for `justlinux`, `speedtest`, and `tnsr`. It will not
+  appear for other router types.
+- **Speed tests, DNS, WHOIS** only appear if delegated or explicitly enabled
+  on a router type that implements them.
+
 It is also highly recommended to specify a source interface ID to be used by
 the router when it will try to ping or traceroute a destination. This is done
 with:

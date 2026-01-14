@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  looking-glass:
+    # Use your custom built image, or build from Dockerfile
+    # Option 1: Use pre-built image
+    image: lg-fork:latest
+    # Option 2: Build from Dockerfile (uncomment to use)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   tags:
+    #     - lg-fork:latest
+    
+    container_name: looking-glass
+    restart: unless-stopped
+    
+    ports:
+      - "8181:80"
+    
+    volumes:
+      # Mount configuration file
+      - ./config.php:/var/www/html/config.php:ro
+      
+      # Mount custom CSS file
+      - ./mystyle.css:/var/www/html/css/mystyle.css:ro
+      
+      # Mount SSH key for router authentication
+      # Note: Ensure the SSH key has proper permissions (chmod 600)
+      - ./home/lg/.ssh/id_rsa:/home/lg/.ssh/id_rsa:ro
+      
+      # Optional: Mount testfiles directory for speed tests
+      # Uncomment if you want to serve speed test files from the container
+      # - ./testfiles:/var/www/html/testfiles:ro
+      
+      # Optional: Mount logs directory for persistent logging
+      # - ./logs:/var/log:rw
+    
+    environment:
+      # Optional: Set timezone
+      - TZ=UTC
+      
+      # Optional: PHP settings
+      - PHP_MEMORY_LIMIT=256M
+      - PHP_MAX_EXECUTION_TIME=300
+    
+    # Health check (optional)
+    # Note: curl may not be installed in the container, so this is commented out
+    # Uncomment and install curl in Dockerfile if you want health checks
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost/"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s

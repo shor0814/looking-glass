@@ -1,0 +1,56 @@
+version: '3.8'
+
+# Example docker-compose.yml for Looking Glass
+# Copy this file to docker-compose.yml and customize as needed
+
+services:
+  looking-glass:
+    # Option 1: Use pre-built image from Docker Hub (upstream)
+    # image: gmazoyer/looking-glass:latest
+    
+    # Option 2: Use your custom built image
+    image: lg-fork:latest
+    
+    # Option 3: Build from Dockerfile (recommended for this fork)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    
+    container_name: looking-glass
+    restart: unless-stopped
+    
+    ports:
+      # Map host port 8181 to container port 80
+      # Change 8181 to your desired host port
+      - "8181:80"
+    
+    volumes:
+      # Required: Configuration file
+      - ./config.php:/var/www/html/config.php:ro
+      
+      # Optional: Custom CSS file
+      - ./mystyle.css:/var/www/html/css/mystyle.css:ro
+      
+      # Optional: SSH key for router authentication
+      # Ensure the SSH key has proper permissions: chmod 600 ./home/lg/.ssh/id_rsa
+      - ./home/lg/.ssh/id_rsa:/home/lg/.ssh/id_rsa:ro
+      
+      # Optional: Speed test files directory
+      # Uncomment if serving speed test files from container
+      # - ./testfiles:/var/www/html/testfiles:ro
+      
+      # Optional: Persistent logs
+      # - ./logs:/var/log:rw
+    
+    environment:
+      - TZ=UTC
+    
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1.0'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 256M

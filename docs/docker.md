@@ -26,6 +26,22 @@ additional files inside the Docker image. You can still mount them while
 running Docker. Below you'll find examples that expose the looking glass on
 the port 80 of the host.
 
+### With Docker Compose
+
+This fork includes a `docker-compose.yml` for a simpler deployment that mirrors
+the `docker run` options (mounting `config.php`, `mystyle.css`, and an SSH key).
+
+```sh
+# Build and run using Docker Compose
+docker compose up --build
+```
+
+If you already built the image, you can omit `--build`:
+
+```sh
+docker compose up
+```
+
 ### With a configuration file
 
 ```sh
