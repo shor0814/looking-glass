@@ -42,6 +42,21 @@ If you already built the image, you can omit `--build`:
 docker compose up
 ```
 
+### Deployment Notes (Build vs. Image)
+
+If you **git clone the repository on the server**, Docker Compose can build
+everything it needs from the included `Dockerfile`:
+
+```sh
+docker compose up --build
+```
+
+This builds from `php:8.3-apache`, installs dependencies, and copies the app
+into the image. No Docker Hub image is required.
+
+If you want to deploy without the repo on the target host, publish an image to
+a registry and use `image: yourname/looking-glass:tag` in `docker-compose.yml`.
+
 ### With a configuration file
 
 ```sh

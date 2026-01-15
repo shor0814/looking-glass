@@ -42,6 +42,7 @@ final class Arista extends Router {
   }
 
   protected function build_aspath_regexp($parameter, $routing_instance = false): array {
+    $parameter = quote($parameter);
     $commands = array();
     $cmd = new CommandBuilder();
     $cmd->add('show');

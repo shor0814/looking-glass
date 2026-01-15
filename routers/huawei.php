@@ -48,6 +48,7 @@ class Huawei extends Router {
   }
 
   protected function build_aspath_regexp($parameter, $routing_instance = false) {
+    $parameter = quote($parameter);
     $commands = array();
     $cmd = new CommandBuilder();
     $cmd->add('display bgp');

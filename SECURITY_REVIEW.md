@@ -304,6 +304,54 @@ $routing_instance = $_POST['routing_instance'];
 
 ---
 
+## 2026 Review Suggestions - Status
+
+This section records responses to the January 2026 external review suggestions.
+
+### 1) Parameter Validation in `execute.php`
+
+**Status:** ✅ Already handled by command-specific validation.
+
+We avoid a single global `validate_parameter()` because parameters vary widely:
+AS-path regex needs regex syntax, hostnames allow dots/hyphens, and some commands
+require spaces. Instead, parameters are validated where they are used:
+
+- `is_valid_destination()` for ping/traceroute/MTR
+- `match_aspath_regexp()` for AS-path regex (hardened to block shell metacharacters)
+- WHOIS ASN validation with strict regex + `escapeshellarg()`
+- Router/datacenter IDs validated by strict regex (`validate_router_id()`)
+
+### 2) CSRF Tokens
+
+**Status:** ⚠️ Not implemented (optional).
+
+This application is read-only and does not mutate server state. CSRF tokens are
+still a valid hardening step, but require sessions and would add operational
+complexity. If you want CSRF tokens, we can add them as an optional feature.
+
+### 3) Router Command Escaping
+
+**Status:** ✅ Ongoing audit, selective escaping in place.
+
+Router implementations already rely on `quote()` and `escapeshellarg()` for
+parameters where appropriate. A blanket `escapeshellcmd()` on full commands is
+not used because it can break router CLI syntax. The focus is on escaping user
+input and validating it per command.
+
+### 4) Session Security Enhancements
+
+**Status:** ⏳ Not applicable unless sessions are introduced.
+
+There is no session-based authentication or state today. If CSRF or login is
+added later, we will include session hardening at that time.
+
+### 5) Rate Limiting
+
+**Status:** ⚠️ Partially covered by anti-spam; enhanced limits optional.
+
+The existing anti-spam module already throttles requests. We can extend this
+with explicit per-minute/per-hour limits if needed.
+
 ## 🛡️ MITIGATION EXAMPLES
 
 ### Example 1: Strengthen AS Path Regex Validation

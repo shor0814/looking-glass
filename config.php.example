@@ -40,6 +40,17 @@ $config['captcha']['url'] = 'https://www.google.com/recaptcha/api/siteverify';
 // For 'hcaptcha' integration
 //$config['captcha']['url'] = 'https://hcaptcha.com/siteverify';
 
+// Security: CSRF protection (enabled by default)
+//$config['security']['csrf']['enabled'] = true;
+
+// Rate limiting (enabled by default)
+//$config['rate_limit']['enabled'] = true;
+//$config['rate_limit']['per_minute'] = 10;
+//$config['rate_limit']['per_hour'] = 100;
+// Optional: override database file or allow list
+//$config['rate_limit']['database_file'] = 'looking-glass.db';
+//$config['rate_limit']['allow_list'] = $config['antispam']['allow_list'];
+
 // Routers definitions
 
 // Authentication based on SSH or Telnet with password

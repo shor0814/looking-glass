@@ -157,6 +157,27 @@ $config = array(
     )
   ),
 
+  // Security
+  'security' => array(
+    // Enable CSRF protection for POST requests
+    'csrf' => array(
+      'enabled' => true
+    )
+  ),
+
+  // Rate limiting
+  'rate_limit' => array(
+    // Enable or disable rate limiting
+    'enabled' => true,
+    // Requests per minute/hour (set to 0 to disable a window)
+    'per_minute' => 10,
+    'per_hour' => 100,
+    // Optional: dedicated database file (defaults to antispam database)
+    'database_file' => null,
+    // Optional: allow list (defaults to antispam allow list)
+    'allow_list' => null
+  ),
+
   // Captcha
   'captcha' => array(
     // Disabled by default

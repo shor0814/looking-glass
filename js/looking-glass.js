@@ -1,3 +1,7 @@
+function getCsrfToken() {
+  return $('input[name="csrf_token"]').val() || '';
+}
+
 function request_doc(query) {
   // Validate query before making request
   if (!query || query.trim() === '') {
@@ -7,7 +11,7 @@ function request_doc(query) {
   $.ajax({
     type: 'post',
     url: 'execute.php',
-    data: { doc: query, dontlook: '' },
+    data: { doc: query, dontlook: '', csrf_token: getCsrfToken() },
     dataType: 'json'
   }).done(function (response) {
     if (response && response.command) {
@@ -27,7 +31,7 @@ function request_commands(routerID, datacenterID) {
     return;
   }
   
-  var data = {selectedRouterValue: routerID};
+  var data = {selectedRouterValue: routerID, csrf_token: getCsrfToken()};
   if (datacenterID) {
     data.selectedDatacenterValue = datacenterID;
   }
@@ -37,7 +41,15 @@ function request_commands(routerID, datacenterID) {
     url: 'execute.php',
     data: data
   }).done(function (response) {
-    if (!response || response.trim() === '') {
+    if (response && typeof response === 'object' && response.error) {
+      console.error('Failed to load commands:', response.error);
+      $('#error-text').text(response.error);
+      $('.alert').slideDown();
+      $("#query").html('');
+      return;
+    }
+
+    if (!response || (typeof response === 'string' && response.trim() === '')) {
       $("#query").html('');
       return;
     }
@@ -70,9 +82,18 @@ function request_routers(datacenterID) {
   $.ajax({
     type: 'POST',
     url: 'execute.php',
-    data: {selectedDatacenterValue: datacenterID}
+    data: {selectedDatacenterValue: datacenterID, csrf_token: getCsrfToken()}
   }).done(function (response) {
-    if (!response || response.trim() === '') {
+    if (response && typeof response === 'object' && response.error) {
+      console.error('Failed to load routers:', response.error);
+      $('#error-text').text(response.error);
+      $('.alert').slideDown();
+      $("#routers").html('');
+      $("#query").html('');
+      return;
+    }
+
+    if (!response || (typeof response === 'string' && response.trim() === '')) {
       console.warn('Empty response when loading routers for datacenter:', datacenterID);
       $("#routers").html('');
       $("#query").html('');
@@ -131,7 +152,7 @@ $(document).ready(function () {
     // reset the form and update the doc modal
     $(this).closest('form').get(0).reset();
     request_doc($('#query').val());
-    if (typeof grecaptcha.reset === "function") {
+    if (typeof grecaptcha !== "undefined" && typeof grecaptcha.reset === "function") {
       grecaptcha.reset();
     }
   });
@@ -140,7 +161,7 @@ $(document).ready(function () {
   $('#backhome').click(function () {
     $('.content').slideDown();
     $('.result').slideUp();
-    if (typeof grecaptcha.reset === "function") {
+    if (typeof grecaptcha !== "undefined" && typeof grecaptcha.reset === "function") {
       grecaptcha.reset();
     }
   });
@@ -226,7 +247,13 @@ $(document).ready(function () {
       var selectedCommand = $('#query').val();
       var parameter = $('#input-param').val();
       
-      if (!response || (response.length === 0)) {
+      if (response && typeof response === 'object' && response.error) {
+        $('#error-text').text(response.error);
+        $('.alert').slideDown();
+        return;
+      }
+
+      if (!response || (typeof response === 'string' && response.length === 0)) {
         // Check if parameter is required for this command
         if (!noParameterCommands.includes(selectedCommand) && (!parameter || parameter.trim() === '')) {
           $('#error-text').text('No parameter given.');
@@ -238,12 +265,14 @@ $(document).ready(function () {
           $('.alert').slideDown();
         }
       } else {
-        try {
-          var response = $.parseJSON(response);
-        } catch {
-          $('#error-text').html("<pre>" + response + "</pre>");
-          $('.alert').slideDown();
-          return;
+        if (typeof response === 'string') {
+          try {
+            response = $.parseJSON(response);
+          } catch {
+            $('#error-text').html("<pre>" + response + "</pre>");
+            $('.alert').slideDown();
+            return;
+          }
         }
 
         if (response.error) {

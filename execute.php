@@ -23,10 +23,33 @@ require_once('config.php');
 require_once('routers/router.php');
 require_once('includes/antispam.php');
 require_once('includes/captcha.php');
+require_once('includes/csrf.php');
+require_once('includes/rate_limit.php');
 require_once('includes/utils.php');
 
 // From where the user *really* comes from.
 $requester = get_requester_ip();
+
+/**
+ * Enforce CSRF protection for stateful actions.
+ */
+function enforce_csrf_if_enabled() {
+  global $config;
+
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    return;
+  }
+  if (!isset($config['security']['csrf']) || $config['security']['csrf']['enabled'] !== true) {
+    return;
+  }
+
+  $csrf_token = $_POST['csrf_token'] ?? '';
+  if (!CSRF::validate($csrf_token)) {
+    header('Content-Type: application/json');
+    print(json_encode(array('error' => 'Invalid CSRF token.')));
+    exit;
+  }
+}
 
 /**
  * Validate router or datacenter ID format for security.
@@ -151,6 +174,20 @@ function dns_whois_available($router_config, $datacenter_config = null, $command
 if ($config['antispam']['enabled']) {
   $antispam = new AntiSpam($config['antispam']);
   $antispam->check_spammer($requester);
+}
+
+// Rate limiting (if enabled)
+if (isset($config['rate_limit']) && $config['rate_limit']['enabled'] === true) {
+  $rate_limit_config = $config['rate_limit'];
+  if (empty($rate_limit_config['database_file']) && isset($config['antispam']['database_file'])) {
+    $rate_limit_config['database_file'] = $config['antispam']['database_file'];
+  }
+  if (empty($rate_limit_config['allow_list']) && isset($config['antispam']['allow_list'])) {
+    $rate_limit_config['allow_list'] = $config['antispam']['allow_list'];
+  }
+
+  $rate_limiter = new RateLimiter($rate_limit_config);
+  $rate_limiter->check_rate_limit($requester);
 }
 
 // Just asked for the documentation
@@ -328,6 +365,8 @@ if (isset($_POST['selectedDatacenterValue']) && !empty($_POST['selectedDatacente
 
 if (isset($_POST['query']) && !empty($_POST['query']) &&
     isset($_POST['routers']) && !empty($_POST['routers'])) {
+  // Enforce CSRF for command execution requests
+  enforce_csrf_if_enabled();
   $query = trim($_POST['query']);
   $hostname = trim($_POST['routers']);
   $parameter = isset($_POST['parameter']) ? trim($_POST['parameter']) : '';

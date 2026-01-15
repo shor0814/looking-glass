@@ -26,6 +26,11 @@ require_once('includes/utils.php');
 final class TNSR extends UNIX {
   protected static $wrapper = 'vtysh -N dataplane -c ';
 
+  private function is_safe_source_interface($value) {
+    return is_string($value) &&
+      preg_match('/^[a-zA-Z0-9_.:-]{1,64}$/', $value) === 1;
+  }
+
   protected function build_bgp($parameter, $routing_instance = false) {
     $cmd = new CommandBuilder();
     // vytsh commands need to be quoted
@@ -59,29 +64,36 @@ final class TNSR extends UNIX {
   }
 
   protected function build_ping($parameter, $routing_instance = false) {
-    if (!is_valid_destination($parameter)) {
-      throw new Exception('The parameter is not an IP address or a hostname.');
+    // Resolve hostnames to IP to avoid unsafe shell input
+    if (match_hostname($parameter)) {
+      $hostname = $parameter;
+      $parameter = hostname_to_ip_address($parameter, $this->config);
+      if (!$parameter) {
+        throw new Exception('No record found for '.$hostname);
+      }
+    }
+
+    if (!is_valid_ip_address($parameter)) {
+      throw new Exception('The parameter does not resolve to an IP address.');
     }
 
     $cmd = new CommandBuilder();
-    $cmd->add('clixon_cli -1 ping ');
-
-    if (match_hostname($parameter)) {
-      $cmd->add(' '.quote($parameter));
-    } else {
-      $cmd->add(' '.quote($parameter));
-    }
+    $cmd->add('clixon_cli -1 ping ', escapeshellarg($parameter));
 
     if ($this->has_source_interface_id()) {
       if (is_valid_ip_address($this->get_source_interface_id())) {
         $cmd->add('source ');
 	if (match_ipv6($parameter)) {
-          $cmd->add($this->get_source_interface_id('ipv6'));
+          $cmd->add(escapeshellarg($this->get_source_interface_id('ipv6')));
         } else {
-          $cmd->add($this->get_source_interface_id('ipv4'));
+          $cmd->add(escapeshellarg($this->get_source_interface_id('ipv4')));
         }
       } else {
-        $cmd->add('source '.$this->get_source_interface_id());
+        $source = $this->get_source_interface_id();
+        if (!$this->is_safe_source_interface($source)) {
+          throw new Exception('Invalid source interface format.');
+        }
+        $cmd->add('source '.escapeshellarg($source));
       }
     }
 
@@ -109,22 +121,22 @@ final class TNSR extends UNIX {
       if (match_ipv6($parameter)) {
         $cmd->add('ipv6');
       }
-      $cmd->add(isset($hostname) ? $hostname : $parameter);
+      $cmd->add(isset($hostname) ? escapeshellarg($hostname) : escapeshellarg($parameter));
     } else {
       if (match_ipv6($parameter)) {
         $cmd->add('ipv6');
       }
-      $cmd->add($parameter);
+      $cmd->add(escapeshellarg($parameter));
     }
 
     if ($this->has_source_interface_id()) {
       $cmd->add('source');
 
       if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->get_source_interface_id('ipv6'));
+        $cmd->add(escapeshellarg($this->get_source_interface_id('ipv6')));
       }
       if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->get_source_interface_id('ipv4'));
+        $cmd->add(escapeshellarg($this->get_source_interface_id('ipv4')));
       }
     }
 
@@ -132,29 +144,36 @@ final class TNSR extends UNIX {
   }
 
   protected function build_mtr($parameter, $routing_instance = false) {
-    if (!is_valid_destination($parameter)) {
-      throw new Exception('The parameter is not an IP address or a hostname.');
+    // Resolve hostnames to IP to avoid unsafe shell input
+    if (match_hostname($parameter)) {
+      $hostname = $parameter;
+      $parameter = hostname_to_ip_address($parameter, $this->config);
+      if (!$parameter) {
+        throw new Exception('No record found for '.$hostname);
+      }
+    }
+
+    if (!is_valid_ip_address($parameter)) {
+      throw new Exception('The parameter does not resolve to an IP address.');
     }
 
     $cmd = new CommandBuilder();
-    $cmd->add('clixon_cli -1 dataplane shell mtr');
-
-    if (match_hostname($parameter)) {
-      $cmd->add(' '.quote($parameter));
-    } else {
-      $cmd->add(' '.quote($parameter));
-    }
+    $cmd->add('clixon_cli -1 dataplane shell mtr', escapeshellarg($parameter));
 
     if ($this->has_source_interface_id()) {
       if (is_valid_ip_address($this->get_source_interface_id())) {
         $cmd->add('--address ');
         if (match_ipv6($parameter)) {
-          $cmd->add($this->get_source_interface_id('ipv6'));
+          $cmd->add(escapeshellarg($this->get_source_interface_id('ipv6')));
         } else {
-          $cmd->add($this->get_source_interface_id('ipv4'));
+          $cmd->add(escapeshellarg($this->get_source_interface_id('ipv4')));
         }
       } else {
-        $cmd->add('--address '.$this->get_source_interface_id());
+        $source = $this->get_source_interface_id();
+        if (!$this->is_safe_source_interface($source)) {
+          throw new Exception('Invalid source interface format.');
+        }
+        $cmd->add('--address '.escapeshellarg($source));
       }
     }
 

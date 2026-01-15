@@ -228,6 +228,18 @@ abstract class Router {
   }
 
   public function send_command($command, $parameter, $routing_instance = false) {
+    if ($routing_instance !== false) {
+      // Defense in depth: validate routing instance format and existence.
+      if (!is_string($routing_instance) ||
+          preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $routing_instance) !== 1) {
+        throw new Exception('Invalid routing instance format.');
+      }
+      if (isset($this->global_config['routing_instances']) &&
+          !array_key_exists($routing_instance, $this->global_config['routing_instances'])) {
+        throw new Exception('Invalid routing instance. Given routing instance is not configured.');
+      }
+    }
+
     $commands = $this->build_commands($command, $parameter, $routing_instance);
     $auth = Authentication::instance($this->config,
       $this->global_config['logs']['auth_debug']);

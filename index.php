@@ -20,14 +20,21 @@
 
 require_once('includes/config.defaults.php');
 require_once('includes/captcha.php');
+require_once('includes/csrf.php');
 require_once('includes/utils.php');
 require_once('config.php');
+
+// Start session early to ensure CSRF token can be generated before output.
+if (session_status() !== PHP_SESSION_ACTIVE) {
+  session_start();
+}
 
 final class LookingGlass {
   private $release;
   private $frontpage;
   private $contact;
   private $misc;
+  private $security;
   private $captcha;
   private $routers;
   private $routing_instances;
@@ -43,6 +50,7 @@ final class LookingGlass {
     $this->frontpage = $config['frontpage'];
     $this->contact = $config['contact'];
     $this->misc = $config['misc'];
+    $this->security = $config['security'] ?? array('csrf' => array('enabled' => false));
     $this->captcha = new Captcha($config['captcha']);
     $this->routers = $config['routers'];
     $this->doc = $config['doc'];
@@ -279,6 +287,11 @@ final class LookingGlass {
         default:
           break;
       }
+    }
+
+    // CSRF token
+    if (isset($this->security['csrf']) && $this->security['csrf']['enabled'] === true) {
+      print('<input type="hidden" name="csrf_token" value="'.CSRF::get_token().'" />');
     }
 
     print('<input type="text" class="d-none" name="dontlook" placeholder="Don\'t look at me!" />');

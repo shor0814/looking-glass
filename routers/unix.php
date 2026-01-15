@@ -19,7 +19,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
  */
 
-require_once('router.php');
+require_once('secure_router_base.php');
 require_once('includes/command_builder.php');
 require_once('includes/utils.php');
 
@@ -30,7 +30,7 @@ require_once('includes/utils.php');
  * based on UNIX anyway but Linux would have been a little bit to specific, and
  * wrong.
  */
-abstract class UNIX extends Router {
+abstract class UNIX extends SecureRouterBase {
   protected function build_ping($parameter, $routing_instance = false) {
     // If the destination is a hostname, try to resolve it to an IP address
     if (match_hostname($parameter)) {
@@ -111,18 +111,21 @@ abstract class UNIX extends Router {
   }
 
   protected function build_mtr($parameter, $routing_instance = false) {
-    if (!is_valid_destination($parameter)) {
-      throw new Exception('The parameter is not an IP address or a hostname.');
+    // Resolve hostnames to IP to avoid unsafe shell input
+    if (match_hostname($parameter)) {
+      $hostname = $parameter;
+      $parameter = hostname_to_ip_address($parameter, $this->config);
+      if (!$parameter) {
+        throw new Exception('No record found for '.$hostname);
+      }
+    }
+
+    if (!is_valid_ip_address($parameter)) {
+      throw new Exception('The parameter does not resolve to an IP address.');
     }
 
     $cmd = new CommandBuilder();
-    $cmd->add('mtr ');
-
-    if (match_hostname($parameter)) {
-      $cmd->add(' '.quote($parameter));
-    } else {
-      $cmd->add(' '.quote($parameter));
-    }
+    $cmd->add('mtr ', escapeshellarg($parameter));
 
     $cmd->add('-c3 -w');
 
