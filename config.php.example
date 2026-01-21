@@ -26,6 +26,8 @@ $config['filters']['output'][] = '/(client1|client2)/';
 $config['filters']['output'][] = '/^NotToShow/';
 // Matched patterns can also replaced inline
 $config['filters']['output'][] = ['/replacethis/', 'withthis'];
+// Maximum allowed length for AS path regexes
+$config['filters']['aspath_regexp_max_length'] = 128;
 
 // If telnet is used in combination with extreme_netiron, uncomment the following filter
 //$config['filters']['output'][] = '/([^\x20-\x7E]|User|Please|Disable|telnet|^\s*$)/';

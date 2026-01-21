@@ -26,7 +26,7 @@
 
 function set_defaults_for_routers(&$parsed_config) {
   $router_defaults = array(
-    'timeout' => 30,
+    'timeout' => 45,
     'disable_ipv6' => false,
     'disable_ipv4' => false,
     'bgp_detail' => false
@@ -138,7 +138,9 @@ $config = array(
       '.[,]*',
       '.[0-9,0-9]*',
       '.[0-9,0-9]+'
-    )
+    ),
+    // Maximum allowed length for AS path regexes
+    'aspath_regexp_max_length' => 128
   ),
 
   // Antispam

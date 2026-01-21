@@ -114,7 +114,7 @@ abstract class Router {
     } else {
       $displayable .= '<pre>';
     }
-    $displayable .= $output.'</pre>';
+    $displayable .= htmlspecialchars($output, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</pre>';
 
     return $displayable;
   }

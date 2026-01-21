@@ -263,9 +263,22 @@ function match_aspath_regexp($aspath_regexp) {
     return false;
   }
 
+  $max_length = isset($config['filters']['aspath_regexp_max_length'])
+    ? (int) $config['filters']['aspath_regexp_max_length']
+    : 128;
+  if ($max_length > 0 && strlen($aspath_regexp) > $max_length) {
+    return false;
+  }
+
+  // Allow only a safe subset of AS-path regex characters to reduce parser abuse.
+  // Common patterns use digits, spaces, _, ^, $, |, (), ., *, +, ?, and [].
+  if (!preg_match('/^[0-9 _^$|().*+?\[\]-]+$/', $aspath_regexp)) {
+    return false;
+  }
+
   // Reject shell metacharacters that could be used for command injection
   // Note: ^ and $ are allowed as they are valid regex anchors
-  $dangerous_chars = array(';', '"', "'", '|', '&', '`', '\\', "\n", "\r");
+  $dangerous_chars = array(';', '"', "'", '|', '&', '`', '\\', "\n", "\r", '%', '<', '>');
   foreach ($dangerous_chars as $char) {
     if (strpos($aspath_regexp, $char) !== false) {
       return false;

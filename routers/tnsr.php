@@ -117,17 +117,9 @@ final class TNSR extends UNIX {
       if (!$parameter) {
         throw new Exception('No record found for '.$hostname);
       }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6');
-      }
-      $cmd->add(isset($hostname) ? escapeshellarg($hostname) : escapeshellarg($parameter));
-    } else {
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6');
-      }
-      $cmd->add(escapeshellarg($parameter));
     }
+
+    $cmd->add(escapeshellarg($parameter));
 
     if ($this->has_source_interface_id()) {
       $cmd->add('source');
@@ -138,6 +130,10 @@ final class TNSR extends UNIX {
       if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
         $cmd->add(escapeshellarg($this->get_source_interface_id('ipv4')));
       }
+    }
+
+    if (match_ipv6($parameter)) {
+      $cmd->add('ipv6');
     }
 
     return array($cmd);

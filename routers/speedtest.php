@@ -125,6 +125,9 @@ final class Speedtest extends UNIX {
       $cmd->add('echo "" && echo "=== Additional PTR Records ===" && ');
       $cmd->add('dig +noall +answer -x ' . escapeshellarg($parameter));
     } else {
+      if (!match_hostname($parameter)) {
+        throw new Exception('DNS lookup parameter must be a valid hostname or IP address.');
+      }
       // Forward DNS lookup
       $cmd->add('echo "=== Forward DNS Lookup for ' . escapeshellarg($parameter) . ' ===" && ');
       $cmd->add('echo "" && echo "=== A Records (IPv4) ===" && ');
