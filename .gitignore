@@ -17,6 +17,7 @@ peering_policy.*
 *.db
 *.log
 *.html
+lg_security_report_*.json
 
 # Configuration files with sensitive data #
 config.php
