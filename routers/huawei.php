@@ -82,15 +82,28 @@ class Huawei extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('ping -c 10 ');
-
-    if ($this->has_source_interface_id()) {
-      $cmd->add('-a ', $this->get_source_interface_id('ipv4'));
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
+    } else {
+      $targets = array($parameter);
     }
-    $cmd->add($parameter);
 
-    return array($cmd);
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('ping -c 10 ');
+
+      if ($this->has_source_interface_id() && match_ipv4($target)) {
+        $cmd->add('-a ', $this->get_source_interface_id('ipv4'));
+      }
+      $cmd->add($target);
+      $commands[] = $cmd;
+    }
+
+    return $commands;
   }
 
   protected function build_traceroute($parameter, $routing_instance = false) {
@@ -98,32 +111,34 @@ class Huawei extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('tracert');
-    if ($this->has_source_interface_id() && !match_ipv6($parameter)) {
-      $cmd->add('-a ', $this->get_source_interface_id('ipv4'));
-    }
-    if (match_ipv6($parameter) || match_ipv4($parameter) ||
-        !$this->has_source_interface_id()) {
-      $cmd->add($parameter);
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
     } else {
-      // Resolve the hostname and go for right IP version
-      $hostname = $parameter;
-      $parameter = hostname_to_ip_address($hostname);
-
-      if (!$parameter) {
-        throw new Exception('No record found for '.$hostname);
-      }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6', (isset($hostname) ? $hostname : $parameter));
-      }
-      if (match_ipv4($parameter)) {
-        $cmd->add((isset($hostname) ? $hostname : $parameter));
-      }
+      $targets = array($parameter);
     }
 
-    return array($cmd);
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('tracert');
+
+      if ($this->has_source_interface_id() && match_ipv4($target)) {
+        $cmd->add('-a ', $this->get_source_interface_id('ipv4'));
+      }
+
+      if (match_ipv6($target)) {
+        $cmd->add('ipv6', $target);
+      } else {
+        $cmd->add($target);
+      }
+
+      $commands[] = $cmd;
+    }
+
+    return $commands;
   }
 }
 

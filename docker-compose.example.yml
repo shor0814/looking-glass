@@ -8,13 +8,11 @@ services:
     # Option 1: Use pre-built image from Docker Hub (upstream)
     # image: gmazoyer/looking-glass:latest
     
-    # Option 2: Use your custom built image
+    # Option 2: Build from Dockerfile (recommended for this fork)
     image: lg-fork:latest
-    
-    # Option 3: Build from Dockerfile (recommended for this fork)
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
     
     container_name: looking-glass
     restart: unless-stopped

@@ -35,100 +35,117 @@ abstract class UNIX extends SecureRouterBase {
     // If the destination is a hostname, try to resolve it to an IP address
     if (match_hostname($parameter)) {
       $hostname = $parameter;
-      $parameter = hostname_to_ip_address($parameter, $this->config);
-      if (!$parameter) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
         throw new Exception('No record found for '.$hostname);
       }
+    } else {
+      $targets = array($parameter);
     }
 
-    if (!is_valid_ip_address($parameter)) {
-      throw new Exception('The parameter does not resolve to an IP address.');
-    }
-
-    // Choose ping binary based on the IP family (IPv6 or IPv4)
-    $cmd = new CommandBuilder();
-    $cmd->add(match_ipv6($parameter) ? 'ping6' : 'ping');
-
-    // Add the source interface based on the IP address
-    if ($this->has_source_interface_id()) {
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->global_config['tools']['ping_source_option'],
-                  $this->get_source_interface_id('ipv6'));
+    $commands = array();
+    foreach ($targets as $target) {
+      if (!is_valid_ip_address($target)) {
+        throw new Exception('The parameter does not resolve to an IP address.');
       }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->global_config['tools']['ping_source_option'],
-                  $this->get_source_interface_id('ipv4'));
+
+      // Choose ping binary based on the IP family (IPv6 or IPv4)
+      $cmd = new CommandBuilder();
+      $cmd->add(match_ipv6($target) ? 'ping6' : 'ping');
+
+      // Add the source interface based on the IP address
+      if ($this->has_source_interface_id()) {
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->global_config['tools']['ping_source_option'],
+                    $this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->global_config['tools']['ping_source_option'],
+                    $this->get_source_interface_id('ipv4'));
+        }
       }
+
+      $cmd->add($this->global_config['tools']['ping_options'], $target);
+      $commands[] = $cmd;
     }
 
-    $cmd->add($this->global_config['tools']['ping_options'],
-              (isset($hostname) ? $hostname : $parameter));
-
-    return array($cmd);
+    return $commands;
   }
 
   protected function build_traceroute($parameter, $routing_instance = false) {
     // If the destination is a hostname, try to resolve it to an IP address
     if (match_hostname($parameter)) {
       $hostname = $parameter;
-      $parameter = hostname_to_ip_address($parameter, $this->config);
-      if (!$parameter) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
         throw new Exception('No record found for '.$hostname);
       }
+    } else {
+      $targets = array($parameter);
     }
 
-    if (!is_valid_ip_address($parameter)) {
-      throw new Exception('The parameter does not resolve to an IP address.');
-    }
-
-    $cmd = new CommandBuilder();
-
-    // Build the command based on the IP address
-    if (match_ipv6($parameter)) {
-      $cmd->add($this->global_config['tools']['traceroute6'],
-                $this->global_config['tools']['traceroute_options'],
-                (isset($hostname) ? $hostname : $parameter));
-    }
-    if (match_ipv4($parameter)) {
-      $cmd->add($this->global_config['tools']['traceroute4'],
-                $this->global_config['tools']['traceroute_options'],
-                (isset($hostname) ? $hostname : $parameter));
-    }
-
-    // Add the source interface based on the IP address
-    if ($this->has_source_interface_id()) {
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->global_config['tools']['traceroute_source_option'],
-                  $this->get_source_interface_id('ipv6'));
+    $commands = array();
+    foreach ($targets as $target) {
+      if (!is_valid_ip_address($target)) {
+        throw new Exception('The parameter does not resolve to an IP address.');
       }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->global_config['tools']['traceroute_source_option'],
-                  $this->get_source_interface_id('ipv4'));
+
+      $cmd = new CommandBuilder();
+
+      // Build the command based on the IP address
+      if (match_ipv6($target)) {
+        $cmd->add($this->global_config['tools']['traceroute6'],
+                  $this->global_config['tools']['traceroute_options'],
+                  $target);
       }
+      if (match_ipv4($target)) {
+        $cmd->add($this->global_config['tools']['traceroute4'],
+                  $this->global_config['tools']['traceroute_options'],
+                  $target);
+      }
+
+      // Add the source interface based on the IP address
+      if ($this->has_source_interface_id()) {
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->global_config['tools']['traceroute_source_option'],
+                    $this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->global_config['tools']['traceroute_source_option'],
+                    $this->get_source_interface_id('ipv4'));
+        }
+      }
+
+      $commands[] = $cmd;
     }
 
-    return array($cmd);
+    return $commands;
   }
 
   protected function build_mtr($parameter, $routing_instance = false) {
     // Resolve hostnames to IP to avoid unsafe shell input
     if (match_hostname($parameter)) {
       $hostname = $parameter;
-      $parameter = hostname_to_ip_address($parameter, $this->config);
-      if (!$parameter) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
         throw new Exception('No record found for '.$hostname);
       }
+    } else {
+      $targets = array($parameter);
     }
 
-    if (!is_valid_ip_address($parameter)) {
-      throw new Exception('The parameter does not resolve to an IP address.');
+    $commands = array();
+    foreach ($targets as $target) {
+      if (!is_valid_ip_address($target)) {
+        throw new Exception('The parameter does not resolve to an IP address.');
+      }
+
+      $cmd = new CommandBuilder();
+      $cmd->add('mtr ', escapeshellarg($target));
+      $cmd->add('-c3 -w');
+      $commands[] = $cmd;
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('mtr ', escapeshellarg($parameter));
-
-    $cmd->add('-c3 -w');
-
-    return array($cmd);
+    return $commands;
   }
 }

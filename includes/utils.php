@@ -314,19 +314,16 @@ function match_aspath_regexp($aspath_regexp) {
 }
 
 /**
- * For a given hostname try to find the corresponding IPv6 or IPv4 address.
+ * For a given hostname try to find the corresponding IPv6 and IPv4 addresses.
  *
- * If there is multiple addresses attached to the same hostname it will give
- * the first IPv6 or IPv4 found.
- *
- * If the hostname have both IPv6 and IPv4 addresses it will give the first
- * IPv6 address found.
+ * If the hostname has both IPv6 and IPv4 addresses it will return IPv6
+ * addresses first, then IPv4 addresses.
  *
  * @param  string $hostname the hostname to use to search in the DNS
  *                          databases.
- * @return string an IPv6 or IPv4 address based on the DNS records.
+ * @return array|false list of IPv6/IPv4 addresses based on the DNS records.
  */
-function hostname_to_ip_address($hostname, $config = null) {
+function hostname_to_ip_addresses($hostname, $config = null) {
   $record_types = DNS_AAAA + DNS_A;
 
   // IPv6 is disabled look for A records only
@@ -345,35 +342,58 @@ function hostname_to_ip_address($hostname, $config = null) {
     return false;
   }
 
-  $records_nb = count($dns_record);
+  $ipv6 = null;
+  $ipv4 = null;
 
-  // Only one record found
-  if ($records_nb == 1) {
-    if ($dns_record[0]['type'] == 'AAAA') {
-      return $dns_record[0]['ipv6'];
-    } else if ($dns_record[0]['type'] == 'A') {
-      return $dns_record[0]['ip'];
-    } else {
-      return false;
+  foreach ($dns_record as $record) {
+    if ($record['type'] === 'AAAA' && isset($record['ipv6'])) {
+      $ipv6 = $record['ipv6'];
+      break;
     }
   }
 
-  // Several records found
-  if ($records_nb > 1) {
-    foreach ($dns_record as $record) {
-      if ($record['type'] == 'AAAA') {
-        return $record['ipv6'];
-      }
+  foreach ($dns_record as $record) {
+    if ($record['type'] === 'A' && isset($record['ip'])) {
+      $ipv4 = $record['ip'];
+      break;
     }
+  }
 
-    foreach ($dns_record as $record) {
-      if ($record['type'] == 'A') {
-        return $record['ip'];
-      }
-    }
+  $addresses = array();
+  if ($ipv6) {
+    $addresses[] = $ipv6;
+  }
+  if ($ipv4) {
+    $addresses[] = $ipv4;
+  }
 
+  if (count($addresses) === 0) {
     return false;
   }
+
+  return $addresses;
+}
+
+/**
+ * For a given hostname try to find the corresponding IPv6 or IPv4 address.
+ *
+ * If there are multiple addresses attached to the same hostname it will give
+ * the first IPv6 or IPv4 found.
+ *
+ * If the hostname have both IPv6 and IPv4 addresses it will give the first
+ * IPv6 address found.
+ *
+ * @param  string $hostname the hostname to use to search in the DNS
+ *                          databases.
+ * @return string|false an IPv6 or IPv4 address based on the DNS records.
+ */
+function hostname_to_ip_address($hostname, $config = null) {
+  $addresses = hostname_to_ip_addresses($hostname, $config);
+  if (!$addresses || count($addresses) === 0) {
+    return false;
+  }
+
+  return $addresses[0];
 }
 
 /**

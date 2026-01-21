@@ -2,15 +2,13 @@ version: '3.8'
 
 services:
   looking-glass:
-    # Use your custom built image, or build from Dockerfile
-    # Option 1: Use pre-built image
+    # Build locally and tag the image
     image: lg-fork:latest
-    # Option 2: Build from Dockerfile (uncomment to use)
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   tags:
-    #     - lg-fork:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      tags:
+        - lg-fork:latest
     
     container_name: looking-glass
     restart: unless-stopped

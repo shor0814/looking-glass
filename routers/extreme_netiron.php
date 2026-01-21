@@ -86,40 +86,40 @@ final class ExtremeNetIron extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('ping');
-
     if (match_hostname($parameter)) {
-      $hostname = $parameter;
-      $parameter = hostname_to_ip_address($hostname, $this->config);
-
-      if (!$parameter) {
-        throw new Exception('No record found for '.$hostname);
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
       }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6');
-      }
-      $cmd->add(isset($hostname) ? $hostname : $parameter);
     } else {
-      if (match_ipv6($parameter)) {
+      $targets = array($parameter);
+    }
+
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('ping');
+
+      if (match_ipv6($target)) {
         $cmd->add('ipv6');
       }
-      $cmd->add($parameter);
+      $cmd->add($target);
+
+      if ($this->has_source_interface_id()) {
+        $cmd->add('source');
+
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
+      }
+
+      $commands[] = $cmd;
     }
 
-    if ($this->has_source_interface_id()) {
-      $cmd->add('source');
-
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->get_source_interface_id('ipv6'));
-      }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->get_source_interface_id('ipv4'));
-      }
-    }
-
-    return array($cmd);
+    return $commands;
   }
 
   protected function build_traceroute($parameter, $routing_instance = false) {
@@ -127,40 +127,40 @@ final class ExtremeNetIron extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('traceroute');
-
     if (match_hostname($parameter)) {
-      $hostname = $parameter;
-      $parameter = hostname_to_ip_address($hostname, $this->config);
-
-      if (!$parameter) {
-        throw new Exception('No record found for '.$hostname);
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
       }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6');
-      }
-      $cmd->add(isset($hostname) ? $hostname : $parameter);
     } else {
-      if (match_ipv6($parameter)) {
+      $targets = array($parameter);
+    }
+
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('traceroute');
+
+      if (match_ipv6($target)) {
         $cmd->add('ipv6');
       }
-      $cmd->add($parameter);
+      $cmd->add($target);
+
+      if ($this->has_source_interface_id()) {
+        $cmd->add('source');
+
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
+      }
+
+      $commands[] = $cmd;
     }
 
-    if ($this->has_source_interface_id()) {
-      $cmd->add('source');
-
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->get_source_interface_id('ipv6'));
-      }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->get_source_interface_id('ipv4'));
-      }
-    }
-
-    return array($cmd);
+    return $commands;
   }
 }
 

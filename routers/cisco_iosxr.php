@@ -64,48 +64,48 @@ final class IOSXR extends Cisco {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('ping');
-
-    if (match_ipv6($parameter) || match_ipv4($parameter) ||
-        !$this->has_source_interface_id()) {
-      $cmd->add($parameter);
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
     } else {
-      // Resolve the hostname and go for right IP version
-      $hostname = $parameter;
-      $parameter = hostname_to_ip_address($hostname, $this->config);
-
-      if (!$parameter) {
-        throw new Exception('No record found for '.$hostname);
-      }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6', (isset($hostname) ? $hostname : $parameter));
-      }
-      if (match_ipv4($parameter)) {
-        $cmd->add('ipv4', (isset($hostname) ? $hostname : $parameter));
-      }
+      $targets = array($parameter);
     }
 
-    $cmd->add('repeat 10');
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('ping');
 
-    // Make sure to use the right source interface
-    if ($this->has_source_interface_id()) {
-      $cmd->add('source');
-
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->get_source_interface_id('ipv6'));
-      }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->get_source_interface_id('ipv4'));
+      if (match_ipv6($target)) {
+        $cmd->add('ipv6', $target);
+      } else {
+        $cmd->add($target);
       }
 
-      if ($routing_instance !== false) {
-        $cmd->add('vrf '.$routing_instance);
-      }
+      $cmd->add('repeat 10');
 
+      // Make sure to use the right source interface
+      if ($this->has_source_interface_id()) {
+        $cmd->add('source');
+
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
+
+        if ($routing_instance !== false) {
+          $cmd->add('vrf '.$routing_instance);
+        }
+
+      }
+      $commands[] = $cmd;
     }
-    return array($cmd);
+
+    return $commands;
   }
 
   protected function build_traceroute($parameter, $routing_instance = false) {
@@ -113,46 +113,46 @@ final class IOSXR extends Cisco {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('traceroute');
-
-    if (match_ipv6($parameter) || match_ipv4($parameter) ||
-        !$this->has_source_interface_id()) {
-      $cmd->add($parameter);
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
     } else {
-      // Resolve the hostname and go for right IP version
-      $hostname = $parameter;
-      $parameter = hostname_to_ip_address($hostname);
-
-      if (!$parameter) {
-        throw new Exception('No record found for '.$hostname);
-      }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6', (isset($hostname) ? $hostname : $parameter));
-      }
-      if (match_ipv4($parameter)) {
-        $cmd->add('ipv4', (isset($hostname) ? $hostname : $parameter));
-      }
+      $targets = array($parameter);
     }
 
-    // Make sure to use the right source interface
-    if ($this->has_source_interface_id()) {
-      $cmd->add('source');
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('traceroute');
 
-      if (match_ipv6($parameter) && $this->get_source_interface_id('ipv6')) {
-        $cmd->add($this->get_source_interface_id('ipv6'));
+      if (match_ipv6($target)) {
+        $cmd->add('ipv6', $target);
+      } else {
+        $cmd->add($target);
       }
-      if (match_ipv4($parameter) && $this->get_source_interface_id('ipv4')) {
-        $cmd->add($this->get_source_interface_id('ipv4'));
+
+      // Make sure to use the right source interface
+      if ($this->has_source_interface_id()) {
+        $cmd->add('source');
+
+        if (match_ipv6($target) && $this->get_source_interface_id('ipv6')) {
+          $cmd->add($this->get_source_interface_id('ipv6'));
+        }
+        if (match_ipv4($target) && $this->get_source_interface_id('ipv4')) {
+          $cmd->add($this->get_source_interface_id('ipv4'));
+        }
       }
+
+      if ($routing_instance !== false) {
+        $cmd->add('vrf '.$routing_instance);
+      }
+
+      $commands[] = $cmd;
     }
 
-    if ($routing_instance !== false) {
-      $cmd->add('vrf '.$routing_instance);
-    }
-
-    return array($cmd);
+    return $commands;
   }
 }
 

@@ -72,24 +72,37 @@ final class Arista extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('ping');
-
-    if (!$this->config['disable_ipv6'] && match_ipv6($parameter)) {
-      $cmd->add('ipv6');
-    }
-    if (!$this->config['disable_ipv4'] && match_ipv4($parameter)) {
-      $cmd->add('ip');
-    }
-    $cmd->add($parameter);
-
-    if ($this->has_source_interface_id()) {
-      $cmd->add('source', $this->get_source_interface_id());
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
+    } else {
+      $targets = array($parameter);
     }
 
-    $cmd->add('repeat 10');
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('ping');
 
-    return array($cmd);
+      if (!$this->config['disable_ipv6'] && match_ipv6($target)) {
+        $cmd->add('ipv6');
+      }
+      if (!$this->config['disable_ipv4'] && match_ipv4($target)) {
+        $cmd->add('ip');
+      }
+      $cmd->add($target);
+
+      if ($this->has_source_interface_id()) {
+        $cmd->add('source', $this->get_source_interface_id());
+      }
+
+      $cmd->add('repeat 10');
+      $commands[] = $cmd;
+    }
+
+    return $commands;
   }
 
   protected function build_traceroute($parameter, $routing_instance = false): array {
@@ -97,36 +110,37 @@ final class Arista extends Router {
       throw new Exception('The parameter is not an IP address or a hostname.');
     }
 
-    $cmd = new CommandBuilder();
-    $cmd->add('traceroute');
-
-    if (match_ipv6($parameter) || match_ipv4($parameter) ||
-      !$this->has_source_interface_id()) {
-      $cmd->add($parameter);
+    if (match_hostname($parameter)) {
+      $targets = hostname_to_ip_addresses($parameter, $this->config);
+      if (!$targets) {
+        throw new Exception('No record found for '.$parameter);
+      }
     } else {
-      // Resolve the hostname and go for right IP version
-      $hostname  = $parameter;
-      $parameter = hostname_to_ip_address($hostname);
-
-      if (!$parameter) {
-        throw new Exception('No record found for ' . $hostname);
-      }
-
-      if (match_ipv6($parameter)) {
-        $cmd->add('ipv6', $hostname ?? $parameter);
-      }
-
-      if (match_ipv4($parameter)) {
-        $cmd->add('ip', $hostname ?? $parameter);
-      }
+      $targets = array($parameter);
     }
 
-    // Make sure to use the right source interface
-    if ($this->has_source_interface_id() && !match_ipv6($parameter)) {
-      $cmd->add('source', $this->get_source_interface_id());
+    $commands = array();
+    foreach ($targets as $target) {
+      $cmd = new CommandBuilder();
+      $cmd->add('traceroute');
+
+      if (match_ipv6($target)) {
+        $cmd->add('ipv6', $target);
+      } else if (match_ipv4($target)) {
+        $cmd->add('ip', $target);
+      } else {
+        $cmd->add($target);
+      }
+
+      // Make sure to use the right source interface
+      if ($this->has_source_interface_id() && !match_ipv6($target)) {
+        $cmd->add('source', $this->get_source_interface_id());
+      }
+
+      $commands[] = $cmd;
     }
 
-    return array($cmd);
+    return $commands;
   }
 }
 
