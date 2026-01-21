@@ -84,6 +84,21 @@ abstract class Authentication {
   public abstract function send_command($command);
 
   /**
+   * Method that provides the needed logic to stream a command output.
+   *
+   * @param string   $command the command to be sent to the host.
+   * @param callable $onChunk callback invoked with output chunks.
+   * @return string  full output (for logging/debugging).
+   */
+  public function send_command_stream($command, $onChunk) {
+    $data = $this->send_command($command);
+    if (is_callable($onChunk)) {
+      $onChunk($data);
+    }
+    return $data;
+  }
+
+  /**
    * Method called when the object is destructed.
    *
    * It will ensure that the disconnection has been done before destructing

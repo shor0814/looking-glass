@@ -102,6 +102,26 @@ final class SSH extends Authentication {
     return $data;
   }
 
+  public function send_command_stream($command, $onChunk) {
+    $this->connect();
+
+    $data = '';
+    $this->connection->exec($command, function ($chunk) use (&$data, $onChunk) {
+      $data .= $chunk;
+      if (is_callable($onChunk)) {
+        $onChunk($chunk);
+      }
+    });
+
+    if ($this->debug) {
+      log_to_file($this->connection->getLog());
+    }
+
+    $this->disconnect();
+
+    return $data;
+  }
+
   public function disconnect() {
     if (($this->connection != null) && $this->connection->isConnected()) {
       $this->connection->disconnect();

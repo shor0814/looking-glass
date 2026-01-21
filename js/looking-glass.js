@@ -129,6 +129,69 @@ function request_routers(datacenterID) {
   });
 }
 
+function stream_command(formData) {
+  var params = new URLSearchParams(formData);
+  var streamUrl = 'execute-stream.php?' + params.toString();
+  var output = $('#output');
+  var hadOutput = false;
+
+  output.html('');
+  $('#command_properties').attr('disabled', '');
+  $('.alert').hide();
+  $('.loading').show();
+
+  var source = new EventSource(streamUrl);
+
+  source.onmessage = function (event) {
+    var payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch (e) {
+      $('#error-text').text('Unexpected streaming response.');
+      $('.alert').slideDown();
+      source.close();
+      $('#command_properties').removeAttr('disabled');
+      $('.loading').hide();
+      return;
+    }
+
+    if (payload.type === 'error') {
+      $('#error-text').text(payload.error || 'Streaming error.');
+      $('.alert').slideDown();
+      source.close();
+      $('#command_properties').removeAttr('disabled');
+      $('.loading').hide();
+      return;
+    }
+
+    if (!hadOutput && (payload.type === 'command_start' || payload.type === 'output')) {
+      $('.content').slideUp();
+      $('.result').slideDown();
+      hadOutput = true;
+    }
+
+    if (payload.html) {
+      output.append(payload.html);
+    }
+
+    if (payload.type === 'done') {
+      source.close();
+      $('#command_properties').removeAttr('disabled');
+      $('.loading').hide();
+    }
+  };
+
+  source.onerror = function () {
+    if (!hadOutput) {
+      $('#error-text').text('Streaming connection failed.');
+      $('.alert').slideDown();
+    }
+    source.close();
+    $('#command_properties').removeAttr('disabled');
+    $('.loading').hide();
+  };
+}
+
 $(document).ready(function () {
   // hide the optional parameters field
   $('.result').hide();
@@ -225,6 +288,11 @@ $(document).ready(function () {
   // send an ajax request that will get the info on the router
   $('form').on('submit', function (e) {
     e.preventDefault();
+
+    if (typeof EventSource !== 'undefined') {
+      stream_command($('form').serialize());
+      return;
+    }
 
     $.ajax({
       type: 'post',

@@ -103,6 +103,63 @@ abstract class Router {
     return preg_replace('/(?:\n|\r\n|\r)$/D', '', $filtered);
   }
 
+  private function sanitize_output_line($line) {
+    if (count($this->global_config['filters']['output']) < 1) {
+      return $line;
+    }
+
+    $valid = true;
+    $filtered_line = $line;
+
+    foreach ($this->global_config['filters']['output'] as $filter) {
+      if (is_array($filter)) {
+        $filtered_line = preg_replace($filter[0], $filter[1], $filtered_line);
+      } else {
+        if (!$valid || (preg_match($filter, $filtered_line) === 1)) {
+          $valid = false;
+          break;
+        }
+      }
+    }
+
+    return $valid ? $filtered_line : null;
+  }
+
+  private function sanitize_output_stream_chunk($chunk, &$carry) {
+    $data = $carry.$chunk;
+    $lines = preg_split("/((\r?\n)|(\r\n?))/", $data);
+    $ends_with_newline = preg_match("/(\r?\n|\r)$/", $data) === 1;
+
+    if ($ends_with_newline) {
+      $carry = '';
+    } else {
+      $carry = array_pop($lines);
+    }
+
+    $filtered = '';
+    foreach ($lines as $line) {
+      $filtered_line = $this->sanitize_output_line($line);
+      if ($filtered_line !== null) {
+        $filtered .= $filtered_line."\n";
+      }
+    }
+
+    return $filtered;
+  }
+
+  private function sanitize_output_stream_flush($carry) {
+    if ($carry === '') {
+      return '';
+    }
+
+    $filtered_line = $this->sanitize_output_line($carry);
+    if ($filtered_line === null) {
+      return '';
+    }
+
+    return $filtered_line;
+  }
+
   protected function format_output($command, $output) {
     $displayable = '';
 
@@ -117,6 +174,25 @@ abstract class Router {
     $displayable .= htmlspecialchars($output, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</pre>';
 
     return $displayable;
+  }
+
+  protected function format_output_start($command) {
+    $displayable = '';
+
+    if ($this->global_config['output']['show_command']) {
+      $displayable .= '<p><kbd>Command: '.$command.'</kdb></p>';
+    }
+    if ($this->global_config['output']['scroll']) {
+      $displayable .= '<pre class="pre-scrollable">';
+    } else {
+      $displayable .= '<pre>';
+    }
+
+    return $displayable;
+  }
+
+  protected function format_output_end() {
+    return '</pre>';
   }
 
   protected function has_source_interface_id() {
@@ -264,6 +340,65 @@ abstract class Router {
     }
 
     return $data;
+  }
+
+  public function send_command_stream($command, $parameter, $routing_instance, $emit) {
+    if ($routing_instance !== false) {
+      // Defense in depth: validate routing instance format and existence.
+      if (!is_string($routing_instance) ||
+          preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $routing_instance) !== 1) {
+        throw new Exception('Invalid routing instance format.');
+      }
+      if (isset($this->global_config['routing_instances']) &&
+          !array_key_exists($routing_instance, $this->global_config['routing_instances'])) {
+        throw new Exception('Invalid routing instance. Given routing instance is not configured.');
+      }
+    }
+
+    if (!is_callable($emit)) {
+      throw new Exception('Streaming emitter is not callable.');
+    }
+
+    $commands = $this->build_commands($command, $parameter, $routing_instance);
+    $auth = Authentication::instance($this->config,
+      $this->global_config['logs']['auth_debug']);
+
+    foreach ($commands as $selected) {
+      $log = str_replace(array('%D', '%R', '%H', '%C'),
+        array(date('Y-m-d H:i:s'), $this->requester, $this->config['host'],
+        '[BEGIN] '.$selected), $this->global_config['logs']['format']);
+      log_to_file($log);
+
+      $emit('command_start', array(
+        'html' => $this->format_output_start($selected)
+      ));
+
+      $carry = '';
+      $auth->send_command_stream((string) $selected, function ($chunk) use (&$carry, $emit) {
+        $filtered = $this->sanitize_output_stream_chunk($chunk, $carry);
+        if ($filtered !== '') {
+          $emit('output', array(
+            'html' => htmlspecialchars($filtered, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+          ));
+        }
+      });
+
+      $remaining = $this->sanitize_output_stream_flush($carry);
+      if ($remaining !== '') {
+        $emit('output', array(
+          'html' => htmlspecialchars($remaining, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        ));
+      }
+
+      $emit('command_end', array(
+        'html' => $this->format_output_end()
+      ));
+
+      $log = str_replace(array('%D', '%R', '%H', '%C'),
+        array(date('Y-m-d H:i:s'), $this->requester, $this->config['host'],
+        '[END] '.$selected), $this->global_config['logs']['format']);
+      log_to_file($log);
+    }
   }
 
   public static final function instance($id, $requester, $datacenter_id = null) {
