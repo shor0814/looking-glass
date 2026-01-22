@@ -313,7 +313,8 @@ final class LookingGlass {
     print('<div class="result">');
     print('<div id="output"></div>');
     print('<div class="row">');
-    print('<div class="col-4 offset-4 btn-group btn-group-lg">');
+    print('<div class="col-6 offset-3 btn-group btn-group-lg">');
+    print('<button class="btn btn-warning" id="stop-stream" type="button">Stop</button>');
     print('<button class="btn btn-danger" id="backhome">Reset</button>');
     print('</div>');
     print('</div>');

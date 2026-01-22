@@ -31,6 +31,18 @@ require_once('includes/utils.php');
  * wrong.
  */
 abstract class UNIX extends SecureRouterBase {
+  protected function normalize_mtr_options($options) {
+    if (!is_string($options) || $options === '') {
+      return '-r';
+    }
+
+    if (preg_match('/(^|\s)(-r|--report|--json|--csv|--raw|--xml)(\s|$)/', $options)) {
+      return $options;
+    }
+
+    return trim($options.' -r');
+  }
+
   protected function build_ping($parameter, $routing_instance = false) {
     // If the destination is a hostname, try to resolve it to an IP address
     if (match_hostname($parameter)) {
@@ -142,7 +154,7 @@ abstract class UNIX extends SecureRouterBase {
 
       $cmd = new CommandBuilder();
       $cmd->add('mtr ', escapeshellarg($target));
-      $cmd->add('-c3 -w');
+      $cmd->add($this->normalize_mtr_options($this->global_config['tools']['mtr_options']));
       $commands[] = $cmd;
     }
 

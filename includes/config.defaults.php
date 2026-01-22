@@ -124,7 +124,9 @@ $config = array(
     // Show or hide command in output
     'show_command' => true,
     // Enable or disable scrolling when displaying result
-    'scroll' => true
+    'scroll' => true,
+    // Optional regex filters to rewrite commands in output
+    'command_filters' => array()
   ),
 
   // Filters
@@ -240,7 +242,10 @@ $config = array(
     // Quagga, and others)
     'traceroute_options' => '-A -q1 -N32 -w1 -m15',
     // Source option to use when tracerouting
-    'traceroute_source_option' => '-s'
+    'traceroute_source_option' => '-s',
+    // Options to be used when running mtr from a UNIX host
+    // Use report mode by default to avoid TTY requirements
+    'mtr_options' => '-r -c 3'
   ),
 
   // Speed test configuration

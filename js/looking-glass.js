@@ -134,13 +134,20 @@ function stream_command(formData) {
   var streamUrl = 'execute-stream.php?' + params.toString();
   var output = $('#output');
   var hadOutput = false;
+  var currentPre = null;
+
+  if (window.activeStreamSource) {
+    window.activeStreamSource.close();
+  }
 
   output.html('');
   $('#command_properties').attr('disabled', '');
   $('.alert').hide();
   $('.loading').show();
+  $('#stop-stream').show();
 
   var source = new EventSource(streamUrl);
+  window.activeStreamSource = source;
 
   source.onmessage = function (event) {
     var payload;
@@ -170,14 +177,28 @@ function stream_command(formData) {
       hadOutput = true;
     }
 
-    if (payload.html) {
+    if (payload.type === 'command_start' && payload.html) {
+      output.append(payload.html);
+      currentPre = output.find('pre').last();
+    } else if (payload.type === 'command_end' && payload.html) {
+      output.append(payload.html);
+      currentPre = null;
+    } else if (payload.type === 'output' && payload.text !== undefined) {
+      if (currentPre && currentPre.length) {
+        currentPre.append(document.createTextNode(payload.text));
+      } else {
+        output.append(document.createTextNode(payload.text));
+      }
+    } else if (payload.html) {
       output.append(payload.html);
     }
 
     if (payload.type === 'done') {
       source.close();
+      window.activeStreamSource = null;
       $('#command_properties').removeAttr('disabled');
       $('.loading').hide();
+      $('#stop-stream').hide();
     }
   };
 
@@ -187,8 +208,10 @@ function stream_command(formData) {
       $('.alert').slideDown();
     }
     source.close();
+    window.activeStreamSource = null;
     $('#command_properties').removeAttr('disabled');
     $('.loading').hide();
+    $('#stop-stream').hide();
   };
 }
 
@@ -224,8 +247,26 @@ $(document).ready(function () {
   $('#backhome').click(function () {
     $('.content').slideDown();
     $('.result').slideUp();
+    if (window.activeStreamSource) {
+      window.activeStreamSource.close();
+      window.activeStreamSource = null;
+    }
+    $('#stop-stream').hide();
     if (typeof grecaptcha !== "undefined" && typeof grecaptcha.reset === "function") {
       grecaptcha.reset();
+    }
+  });
+
+  $('#stop-stream').hide();
+  $('#stop-stream').click(function () {
+    if (window.activeStreamSource) {
+      window.activeStreamSource.close();
+      window.activeStreamSource = null;
+      $('#command_properties').removeAttr('disabled');
+      $('.loading').hide();
+      $('#stop-stream').hide();
+      $('#error-text').text('Streaming stopped.');
+      $('.alert').slideDown();
     }
   });
 

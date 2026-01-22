@@ -160,11 +160,34 @@ abstract class Router {
     return $filtered_line;
   }
 
+  private function format_command_for_output($command) {
+    $filters = array();
+    if (isset($this->global_config['output']['command_filters']) &&
+        is_array($this->global_config['output']['command_filters'])) {
+      $filters = $this->global_config['output']['command_filters'];
+    }
+    if (isset($this->config['command_output_filters']) &&
+        is_array($this->config['command_output_filters'])) {
+      $filters = $this->config['command_output_filters'];
+    }
+
+    $display = (string) $command;
+    foreach ($filters as $filter) {
+      if (is_array($filter)) {
+        $display = preg_replace($filter[0], $filter[1], $display);
+      } else {
+        $display = preg_replace($filter, '', $display);
+      }
+    }
+
+    return $display;
+  }
+
   protected function format_output($command, $output) {
     $displayable = '';
 
     if ($this->global_config['output']['show_command']) {
-      $displayable .= '<p><kbd>Command: '.$command.'</kdb></p>';
+      $displayable .= '<p><kbd>Command: '.$this->format_command_for_output($command).'</kdb></p>';
     }
     if ($this->global_config['output']['scroll']) {
       $displayable .= '<pre class="pre-scrollable">';
@@ -180,7 +203,7 @@ abstract class Router {
     $displayable = '';
 
     if ($this->global_config['output']['show_command']) {
-      $displayable .= '<p><kbd>Command: '.$command.'</kdb></p>';
+      $displayable .= '<p><kbd>Command: '.$this->format_command_for_output($command).'</kdb></p>';
     }
     if ($this->global_config['output']['scroll']) {
       $displayable .= '<pre class="pre-scrollable">';
@@ -378,7 +401,7 @@ abstract class Router {
         $filtered = $this->sanitize_output_stream_chunk($chunk, $carry);
         if ($filtered !== '') {
           $emit('output', array(
-            'html' => htmlspecialchars($filtered, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            'text' => $filtered
           ));
         }
       });
@@ -386,7 +409,7 @@ abstract class Router {
       $remaining = $this->sanitize_output_stream_flush($carry);
       if ($remaining !== '') {
         $emit('output', array(
-          'html' => htmlspecialchars($remaining, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+          'text' => $remaining
         ));
       }
 

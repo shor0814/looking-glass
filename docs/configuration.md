@@ -426,9 +426,9 @@ Because this header is user controlled, it's disabled by default.
 
 ### Tools
 
-The tools that are used by this software are **ping** and **traceroute** for
-routers based on BIRD and Quagga. However some people might want to be able to
-customize the way these tools are used.
+The tools that are used by this software are **ping**, **traceroute**, and
+**mtr** for routers based on BIRD and Quagga. However some people might want to
+be able to customize the way these tools are used.
 
 ```php
 $config['tools']['ping_options'] = '-A -c 10';
@@ -458,6 +458,11 @@ $config['tools']['traceroute_source_option'] = '-s';
 This vairiable is a string giving the option to source a traceroute from an IP
 address. it should probably not be changed unless when using another tool to
 traceroute an destination IP.
+
+```php
+$config['tools']['mtr_options'] = '-c 3';
+```
+This variable is a string with all mtr options to be used.
 
 ### Documentation
 

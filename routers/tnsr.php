@@ -189,7 +189,7 @@ final class TNSR extends UNIX {
         }
       }
 
-      $cmd->add('-c3 -w');
+      $cmd->add($this->normalize_mtr_options($this->global_config['tools']['mtr_options']));
       $commands[] = $cmd;
     }
 

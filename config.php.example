@@ -70,6 +70,14 @@ $config['routers']['router1']['type'] = 'juniper';
 $config['routers']['router1']['source-interface-id'] = 'lo0';
 // The router description to be displayed in the router list
 $config['routers']['router1']['desc'] = 'Example\'s Router 1';
+// Optional: rewrite displayed command output for this router
+// Use regex replacements to hide implementation details
+// Example for TNSR:
+//$config['routers']['router1']['command_output_filters'] = array(
+//  array('/^clixon_cli -1 /', ''),
+//  array('/^vtysh -N dataplane -c "/', ''),
+//  array('/^dataplane shell /', '')
+//);
 
 // Authentication based on SSH with key
 // The hostname or the IP address
@@ -145,6 +153,7 @@ $config['routers']['router5']['bgp_detail'] = true;
 $config['tools']['ping_options'] = '-c 5';
 // If running on *BSD, disable '-N' which is non-existent
 $config['tools']['traceroute_options'] = '-A -q1 -w2 -m15';
+$config['tools']['mtr_options'] = '-r -c 3';
 // If running on *BSD, there is no '-4' or '-6'
 $config['tools']['traceroute6'] = 'traceroute6';
 $config['tools']['traceroute4'] = 'traceroute';
