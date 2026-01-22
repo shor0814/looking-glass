@@ -35,6 +35,7 @@ final class LookingGlass {
   private $contact;
   private $misc;
   private $security;
+  private $csrf_token;
   private $captcha;
   private $routers;
   private $routing_instances;
@@ -51,6 +52,11 @@ final class LookingGlass {
     $this->contact = $config['contact'];
     $this->misc = $config['misc'];
     $this->security = $config['security'] ?? array('csrf' => array('enabled' => false));
+    if (isset($this->security['csrf']) && $this->security['csrf']['enabled'] === true) {
+      $this->csrf_token = CSRF::get_token();
+    } else {
+      $this->csrf_token = null;
+    }
     $this->captcha = new Captcha($config['captcha']);
     $this->routers = $config['routers'];
     $this->doc = $config['doc'];
@@ -290,8 +296,8 @@ final class LookingGlass {
     }
 
     // CSRF token
-    if (isset($this->security['csrf']) && $this->security['csrf']['enabled'] === true) {
-      print('<input type="hidden" name="csrf_token" value="'.CSRF::get_token().'" />');
+    if ($this->csrf_token !== null) {
+      print('<input type="hidden" name="csrf_token" value="'.$this->csrf_token.'" />');
     }
 
     print('<input type="text" class="d-none" name="dontlook" placeholder="Don\'t look at me!" />');
